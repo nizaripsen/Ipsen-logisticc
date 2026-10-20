@@ -39,55 +39,153 @@ footer{text-align:center;padding:25px;color:#637386;font-size:13px}
 <footer>IPSEN Logistics — Portail de consultation du stock</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const SUPABASE_URL = "https://lyzxhpkpboqsluuyrypr.supabase.co";
-const SUPABASE_KEY = "sb_publishable_4FS53EVOwmQ9GHyPB241mA_5JE64o12";
 
-const supabaseClient = window.supabase.createClient(
-  SUPABASE_URL,
-  SUPABASE_KEY
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const sb = window.supabase.createClient(
+  "https://lyzxhpkpboqsluuyrypr.supabase.co",
+  "sb_publishable_4FS53EVOwmQ9GHyPB241mA_5JE64o12"
 );
 
-document.getElementById("login").addEventListener("submit", async (e) => {
+const form = document.getElementById("login");
+const message = document.getElementById("message");
+
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  message.textContent = "Connexion...";
 
-  const message = document.getElementById("message");
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value;
-
-  message.textContent = "Connexion en cours...";
-
-  const { data, error } = await supabaseClient.auth.signInWithPassword({
-    email,
-    password
+  const { data, error } = await sb.auth.signInWithPassword({
+    email: document.getElementById("email").value.trim(),
+    password: document.getElementById("password").value
   });
 
   if (error) {
-    message.textContent = "Erreur de connexion : vérifiez votre e-mail et votre mot de passe.";
+    message.textContent = "Erreur : vérifiez votre e-mail et mot de passe.";
     return;
   }
 
-  const { data: profile, error: profileError } = await supabaseClient
+  const { data: profile, error: pError } = await sb
     .from("profiles")
     .select("role, client_id")
     .eq("id", data.user.id)
     .single();
 
-  if (profileError || !profile) {
-    message.textContent = "Profil introuvable. Contactez l'administrateur.";
-    await supabaseClient.auth.signOut();
+  if (pError || !profile) {
+    message.textContent = "Profil introuvable.";
+    await sb.auth.signOut();
     return;
   }
 
-  if (profile.role === "admin") {
-    message.textContent = "Connexion réussie — compte administrateur.";
-  } else {
-    message.textContent = "Connexion réussie — compte client.";
+  if (profile.role !== "admin") {
+    message.textContent = "Espace client : le tableau client sera ajouté ensuite.";
+    return;
   }
 
-  // On garde la session ouverte pour les prochaines étapes.
+  form.style.display = "none";
+  document.querySelector("h3").style.display = "none";
+  message.textContent = "";
+
+  const panel = document.createElement("section");
+  panel.className = "card";
+  panel.innerHTML = `
+    <h1>Dashboard Admin</h1>
+    <p>IPSEN Logistics — Gestion du stock</p>
+    <div id="stats">Chargement des données...</div>
+    <h3>Recherche du stock</h3>
+    <input id="search" placeholder="Rechercher ESC, RUB ou client">
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th>Client</th><th>ESC</th><th>RUB</th>
+            <th>Date entrée</th><th>Colis</th>
+            <th>Poids brut (kg)</th><th>Statut</th>
+          </tr>
+        </thead>
+        <tbody id="stockRows"></tbody>
+      </table>
+    </div>
+    <p id="count"></p>
+    <button id="logout">Se déconnecter</button>
+  `;
+
+  document.querySelector("main").appendChild(panel);
+
+  const stats = panel.querySelector("#stats");
+  const rowsEl = panel.querySelector("#stockRows");
+  const search = panel.querySelector("#search");
+  const count = panel.querySelector("#count");
+
+  const [clientsResult, stockResult] = await Promise.all([
+    sb.from("clients").select("id,name").order("name"),
+    sb.from("stock_records")
+      .select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie")
+      .order("date_entree", { ascending: false })
+  ]);
+
+  if (clientsResult.error || stockResult.error) {
+    stats.textContent = "Erreur de chargement. Vérifiez les droits RLS et les colonnes.";
+    return;
+  }
+
+  const clients = clientsResult.data || [];
+  const records = stockResult.data || [];
+  const clientNames = Object.fromEntries(
+    clients.map(c => [c.id, c.name])
+  );
+
+  const totalColis = records.reduce(
+    (sum, r) => sum + (Number(r.colis) || 0), 0
+  );
+  const totalWeight = records.reduce(
+    (sum, r) => sum + (Number(r.poids_brut) || 0), 0
+  );
+
+  stats.innerHTML = `
+    <p><b>Clients :</b> ${clients.length}</p>
+    <p><b>Opérations :</b> ${records.length}</p>
+    <p><b>Total colis :</b> ${totalColis.toLocaleString("fr-FR")}</p>
+    <p><b>Poids brut :</b> ${totalWeight.toLocaleString("fr-FR")} kg</p>
+  `;
+
+  function renderRows() {
+    const q = search.value.trim().toLowerCase();
+    const filtered = records.filter(r => [
+      clientNames[r.client_id] || "",
+      r.esc || "", r.rub || "", r.statut || ""
+    ].some(v => String(v).toLowerCase().includes(q)));
+
+    rowsEl.replaceChildren();
+
+    filtered.forEach(r => {
+      const tr = document.createElement("tr");
+      [
+        clientNames[r.client_id] || "Client non associé",
+        r.esc, r.rub, r.date_entree,
+        r.colis, r.poids_brut, r.statut
+      ].forEach(value => {
+        const td = document.createElement("td");
+        td.textContent = value ?? "";
+        td.style.padding = "8px";
+        td.style.borderBottom = "1px solid #ddd";
+        tr.appendChild(td);
+      });
+      rowsEl.appendChild(tr);
+    });
+
+    count.textContent = `${filtered.length} opération(s) affichée(s)`;
+  }
+
+  search.addEventListener("input", renderRows);
+  renderRows();
+
+  panel.querySelector("#logout").addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
 });
-</script>
+  </script>
+  
   
 </body>
 </html>
