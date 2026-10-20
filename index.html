@@ -37,13 +37,58 @@ footer{text-align:center;padding:25px;color:#637386;font-size:13px}
 </section>
 </main>
 <footer>IPSEN Logistics — Portail de consultation du stock</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-document.getElementById("login").addEventListener("submit",function(e){
-e.preventDefault();
-document.getElementById("message").textContent=
-"La connexion sera activée après le raccordement à Supabase.";
+const SUPABASE_URL = "https://lyzxhpkpboqsluuyrypr.supabase.co";
+const SUPABASE_KEY = "sb_publishable_4FS53EVOwmQ9GHyPB241mA_5JE64o12";
+
+const supabaseClient = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_KEY
+);
+
+document.getElementById("login").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const message = document.getElementById("message");
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value;
+
+  message.textContent = "Connexion en cours...";
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    message.textContent = "Erreur de connexion : vérifiez votre e-mail et votre mot de passe.";
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabaseClient
+    .from("profiles")
+    .select("role, client_id")
+    .eq("id", data.user.id)
+    .single();
+
+  if (profileError || !profile) {
+    message.textContent = "Profil introuvable. Contactez l'administrateur.";
+    await supabaseClient.auth.signOut();
+    return;
+  }
+
+  if (profile.role === "admin") {
+    message.textContent = "Connexion réussie — compte administrateur.";
+  } else {
+    message.textContent = "Connexion réussie — compte client.";
+  }
+
+  // On garde la session ouverte pour les prochaines étapes.
 });
 </script>
+  
 </body>
 </html>
 
