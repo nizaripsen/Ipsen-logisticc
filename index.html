@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="fr">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IPSEN - Portail Clients</title>
+  <style>
+body{margin:0;font-family:Arial,sans-serif;background:#f2f5f9;color:#183047}
+header{background:#123b5d;color:white;padding:22px}
+main{max-width:850px;margin:30px auto;padding:15px}
+.card{background:white;padding:24px;border-radius:14px;box-shadow:0 4px 15px #0001}
+h1{margin-top:0}p{color:#637386;line-height:1.6}
+input{display:block;width:100%;box-sizing:border-box;padding:13px;margin:10px 0;border:1px solid #ccd5df;border-radius:7px}
+button{background:#147d64;color:white;border:0;padding:13px 18px;border-radius:7px;font-weight:bold}
+footer{text-align:center;padding:25px;color:#637386;font-size:13px}
+</style>
+ </head>
+ <body>
+  <header>
+<img src="images.png" alt="IPSEN Logistics" style="width:220px;max-width:90%;height:auto;display:block;margin:0 auto 15px;">
+   <h2>IPSEN | PORTAIL CLIENTS</h2>
+   <div>Suivi du stock et des opérations logistiques</div>
+  </header>
+  <main>
+   <section class="card">
+    <h1>Bienvenue sur votre portail</h1>
+    <p>Consultez vos informations logistiques depuis un espace sécurisé.</p>
+    <h3>Connexion client</h3>
+    <form id="login">
+     <label for="email">Adresse e-mail</label> <input id="email" type="email" placeholder="Votre e-mail" required> <label for="password">Mot de passe</label> <input id="password" type="password" placeholder="Votre mot de passe" required>
+     <button type="submit">Se connecter</button>
+     <p id="message"></p>
+    </form>
+   </section>
+  </main>
+  <footer>IPSEN Logistics — Portail de consultation du stock et suivi des conteneurs</footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+const sb = window.supabase.createClient(
+  "https://lyzxhpkpboqsluuyrypr.supabase.co",
+  "sb_publishable_4FS53EVOwmQ9GHyPB241mA_5JE64o12"
+);
+const form = document.getElementById("login");
+const message = document.getElementById("message");
+const main = document.querySelector("main");
+
+function addLogout(panel) {
+  const btn = panel.querySelector("#logout");
+  btn.addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+}
+function cell(value) {
+  const td = document.createElement("td");
+  td.textContent = value == null ? "" : String(value);
+  td.style.cssText = "padding:9px;border-bottom:1px solid #e2e8f0;white-space:nowrap";
+  return td;
+}
+function showTable(panel, records, clientNames, admin) {
+  const rows = panel.querySelector("#stockRows");
+  const search = panel.querySelector("#search");
+  const count = panel.querySelector("#count");
+  function render() {
+    const q = search.value.trim().toLowerCase();
+    const filtered = records.filter(r => [clientNames[r.client_id] || "", r.esc || "", r.rub || "", r.statut || "", r.date_entree || ""]
+      .some(v => String(v).toLowerCase().includes(q)));
+    rows.replaceChildren();
+    filtered.forEach(r => {
+      const tr = document.createElement("tr");
+      const values = admin ? [clientNames[r.client_id] || "Client non associé", r.esc, r.rub, r.date_entree, r.colis, r.poids_brut, r.statut, r.date_sortie]
+                           : [r.esc, r.rub, r.date_entree, r.colis, r.poids_brut, r.statut, r.date_sortie];
+      values.forEach(v => tr.appendChild(cell(v)));
+      rows.appendChild(tr);
+    });
+    count.textContent = `${filtered.length} opération(s) affichée(s)`;
+  }
+  search.addEventListener("input", render); render();
+}
+function makePanel(title, admin) {
+  const panel = document.createElement("section");
+  panel.className = "card";
+  panel.style.marginTop = "20px";
+  panel.innerHTML = `
+    <h1>${title}</h1>
+    <p>IPSEN Logistics — Suivi du stock</p>
+    <div id="stats">Chargement des données...</div>
+    <h3>Recherche du stock</h3>
+    <input id="search" placeholder="Rechercher ESC, RUB ou statut" aria-label="Recherche du stock">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:14px">
+      <thead><tr>${admin ? '<th>Client</th>' : ''}<th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut (kg)</th><th>Statut</th><th>Date sortie</th></tr></thead>
+      <tbody id="stockRows"></tbody></table></div>
+    <p id="count"></p><button id="logout" type="button">Se déconnecter</button>`;
+  main.appendChild(panel); addLogout(panel); return panel;
+}
+async function loadPortal(user, profile) {
+  form.style.display = "none";
+  document.querySelector("main > .card").querySelector("h3").style.display = "none";
+  message.textContent = "";
+  const isAdmin = profile.role === "admin";
+  if (!isAdmin && !profile.client_id) {
+    message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
+    form.style.display = "block"; await sb.auth.signOut(); return;
+  }
+  const panel = makePanel(isAdmin ? "Dashboard Admin" : "Espace Client", isAdmin);
+  const stats = panel.querySelector("#stats");
+  let clients = [], records = [];
+  if (isAdmin) {
+    const [cr, sr] = await Promise.all([
+      sb.from("clients").select("id,name").order("name"),
+      sb.from("stock_records").select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").order("date_entree", {ascending:false})
+    ]);
+    if (cr.error || sr.error) { stats.textContent = "Erreur de chargement des données. Vérifiez les politiques RLS et les colonnes."; return; }
+    clients = cr.data || []; records = sr.data || [];
+  } else {
+    const [cr, sr] = await Promise.all([
+      sb.from("clients").select("id,name").eq("id", profile.client_id).single(),
+      sb.from("stock_records").select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").eq("client_id", profile.client_id).order("date_entree", {ascending:false})
+    ]);
+    if (cr.error || sr.error) { stats.textContent = "Impossible de charger votre stock. Vérifiez les droits RLS et votre association client."; return; }
+    clients = cr.data ? [cr.data] : []; records = sr.data || [];
+    const name = clients[0]?.name || "Espace Client";
+    panel.querySelector("h1").textContent = name;
+    panel.querySelector("p").textContent = `Bienvenue ${name} — consultation de votre stock uniquement.`;
+  }
+  const clientNames = Object.fromEntries(clients.map(c => [c.id, c.name]));
+  const totalColis = records.reduce((sum,r) => sum + (Number(r.colis)||0), 0);
+  const totalWeight = records.reduce((sum,r) => sum + (Number(r.poids_brut)||0), 0);
+  stats.innerHTML = `<p><b>${isAdmin ? 'Clients' : 'Votre client'} :</b> ${isAdmin ? clients.length : (clients[0]?.name || '')}</p><p><b>Opérations :</b> ${records.length}</p><p><b>Total colis :</b> ${totalColis.toLocaleString('fr-FR')}</p><p><b>Poids brut :</b> ${totalWeight.toLocaleString('fr-FR')} kg</p>`;
+  showTable(panel, records, clientNames, isAdmin);
+  if (isAdmin) await addContainerModule(panel, clients);
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("fr-FR", {dateStyle:"short", timeStyle:"short", timeZone:"Africa/Tunis"});
+}
+function duration(entry, exit) {
+  if (!entry) return "—";
+  // Parse timestamps safely and avoid displaying negative durations.
+  const start = Date.parse(entry);
+  const end = exit ? Date.parse(exit) : Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "—";
+  const totalMinutes = Math.max(0, Math.floor((end - start) / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days} j ${hours} h ${minutes} min`;
+  if (hours > 0) return `${hours} h ${minutes} min`;
+  return `${minutes} min`;
+}
+async function addContainerModule(parent, clients) {
+  const section = document.createElement("section");
+  section.className = "card"; section.style.marginTop = "20px";
+  section.innerHTML = `
+    <h1>🚛 Gestion des conteneurs</h1>
+    <p>Mode rapide : saisissez le numéro, puis confirmez directement l’entrée ou la sortie. Aucun client requis.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0">
+      <div style="background:#edf7f3;padding:14px;border-radius:10px"><small>Dans le parc</small><h2 id="cInside">—</h2></div>
+      <div style="background:#eef4fb;padding:14px;border-radius:10px"><small>Entrées aujourd'hui</small><h2 id="cTodayIn">—</h2></div>
+      <div style="background:#fff5e8;padding:14px;border-radius:10px"><small>Sorties aujourd'hui</small><h2 id="cTodayOut">—</h2></div>
+    </div>
+    <h3>Nouvelle opération rapide</h3>
+    <label for="cNumber">Numéro du conteneur</label>
+    <input id="cNumber" placeholder="Ex. MSKU1234567" autocomplete="off" autocapitalize="characters" autofocus>
+    <label for="cNotes">Notes (facultatif)</label><input id="cNotes" placeholder="Chauffeur, camion, remarque…">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>
+    <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
+    <h3>Historique des mouvements</h3><input id="cSearch" placeholder="Rechercher un numéro">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Conteneur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Notes</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
+    <p id="cCount"></p>`;
+  parent.appendChild(section);
+  const el = id => section.querySelector("#"+id);
+  let movements = [];
+  async function refresh() {
+    const {data,error}=await sb.from("container_movements").select("id,container_number,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
+    if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
+    movements=data||[];
+    const today=new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date());
+    el("cInside").textContent=movements.filter(x=>!x.exit_at).length;
+    el("cTodayIn").textContent=movements.filter(x=>x.entry_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.entry_at))===today).length;
+    el("cTodayOut").textContent=movements.filter(x=>x.exit_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.exit_at))===today).length;
+    renderRows();
+  }
+  function renderRows(){
+    const q=el("cSearch").value.trim().toLowerCase(), tbody=el("cRows"); tbody.replaceChildren();
+    const filtered=movements.filter(x=>[x.container_number,x.status||"",x.notes||""].some(v=>String(v).toLowerCase().includes(q)));
+    filtered.forEach(x=>{
+      const tr=document.createElement("tr");
+      const vals=[x.container_number,formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc",x.notes||"—"];
+      vals.forEach(v=>tr.appendChild(cell(v)));
+      const actionCell=document.createElement("td");
+      const del=document.createElement("button");
+      del.type="button"; del.textContent="Effacer";
+      del.style.cssText="background:#b91c1c;color:#fff;border:0;border-radius:6px;padding:7px 10px;cursor:pointer;white-space:nowrap";
+      del.addEventListener("click",()=>deleteMovement(x,del));
+      actionCell.appendChild(del); tr.appendChild(actionCell); tbody.appendChild(tr);
+    });
+    el("cCount").textContent=`${filtered.length} mouvement(s) affiché(s)`;
+  }
+  async function deleteMovement(movement, button){
+    const label=`${movement.container_number} — entrée ${formatDate(movement.entry_at)}`;
+    if(!window.confirm(`Supprimer définitivement ce mouvement ?\n${label}\nCette action est irréversible.`)) return;
+    button.disabled=true; button.textContent="Suppression…";
+    el("cMsg").textContent="Suppression du mouvement…";
+    try{
+      const {error}=await sb.from("container_movements").delete().eq("id",movement.id);
+      if(error) throw error;
+      el("cMsg").textContent=`Mouvement ${movement.container_number} supprimé.`;
+      await refresh();
+    }catch(err){
+      el("cMsg").textContent="Suppression refusée : "+(err.message||"vérifiez les autorisations DELETE (RLS) dans Supabase.");
+      button.disabled=false; button.textContent="Effacer";
+    }
+  }
+  el("cSearch").addEventListener("input",renderRows);
+  // Saisie manuelle prioritaire : pas de chargement ni d'attente OCR.
+  el("cNumber").addEventListener("input", () => {
+    el("cNumber").value = el("cNumber").value.toUpperCase().replace(/\s+/g, "");
+  });
+  el("cNumber").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveMovement("entry");
+    }
+  });
+  async function saveMovement(action){
+    const number=el("cNumber").value.trim().toUpperCase().replace(/\s+/g,"");
+    if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(number)){el("cMsg").textContent="Vérifiez le numéro : format habituel 4 lettres + 7 caractères.";return;}
+    el("cEntry").disabled=el("cExit").disabled=true;el("cMsg").textContent="Enregistrement…";
+    try{
+      const active=movements.find(x=>x.container_number===number&&!x.exit_at);
+      if(action==="entry"){
+        if(active){el("cMsg").textContent="Ce conteneur est déjà enregistré dans le parc. Utilisez la sortie si nécessaire.";return;}
+        const {error}=await sb.from("container_movements").insert({container_number:number,client_id:null,notes:el("cNotes").value.trim()||null,created_by:(await sb.auth.getUser()).data.user?.id});
+        if(error)throw error;
+        el("cMsg").textContent=`Entrée enregistrée pour ${number}. Date et heure générées automatiquement.`;
+      }else{
+        if(!active){el("cMsg").textContent="Aucune entrée ouverte trouvée pour ce numéro. Vérifiez le numéro ou enregistrez l'entrée.";return;}
+        const {error}=await sb.from("container_movements").update({exit_at:new Date().toISOString(),status:"sorti",notes:el("cNotes").value.trim()||active.notes||null}).eq("id",active.id).is("exit_at",null);
+        if(error)throw error;
+        el("cMsg").textContent=`Sortie enregistrée pour ${number}. Durée dans le parc : ${duration(active.entry_at,new Date().toISOString())}.`;
+      }
+      el("cNumber").value="";el("cNotes").value="";el("cNumber").focus();await refresh();
+    }catch(err){el("cMsg").textContent="Erreur d'enregistrement : "+(err.message||"vérifiez la table et les autorisations Supabase.");}
+    finally{el("cEntry").disabled=el("cExit").disabled=false;}
+  }
+  el("cEntry").addEventListener("click",()=>saveMovement("entry"));
+  el("cExit").addEventListener("click",()=>saveMovement("exit"));
+  await refresh();
+}
+form.addEventListener("submit", async (e) => {
+  e.preventDefault(); message.textContent = "Connexion...";
+  const {data, error} = await sb.auth.signInWithPassword({
+    email: document.getElementById("email").value.trim(),
+    password: document.getElementById("password").value
+  });
+  if (error) { message.textContent = "Erreur de connexion : vérifiez l'e-mail et le mot de passe."; return; }
+  const {data: profile, error: pError} = await sb.from("profiles").select("role,client_id").eq("id", data.user.id).single();
+  if (pError || !profile) { message.textContent = "Profil introuvable. Contactez l'administrateur IPSEN."; await sb.auth.signOut(); return; }
+  await loadPortal(data.user, profile);
+});
+// Reprendre la session si l'utilisateur actualise la page.
+(async () => {
+  const {data: {session}} = await sb.auth.getSession();
+  if (!session) return;
+  const {data: profile, error} = await sb.from("profiles").select("role,client_id").eq("id", session.user.id).single();
+  if (!error && profile) await loadPortal(session.user, profile);
+})();
+</script>
+ </body>
+</html>
