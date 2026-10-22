@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="fr">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>IPSEN - Portail Clients</title>
+  <style>
+*{box-sizing:border-box} :root{--navy:#102a43;--blue:#1769aa;--green:#138a62;--amber:#b45309;--red:#b91c1c;--ink:#183047;--muted:#64748b;--line:#e2e8f0;--bg:#f3f6fb}
+body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:linear-gradient(120deg,#102a43,#1769aa);color:white;padding:26px clamp(16px,4vw,48px);box-shadow:0 6px 24px #102a4326}header h2{margin:0 0 6px;text-align:center}header div{text-align:center;color:#dbeafe}
+main{max-width:1400px;margin:25px auto;padding:0 18px 28px}.card{background:white;padding:clamp(16px,2.5vw,28px);border-radius:18px;box-shadow:0 8px 28px #16324f0d;border:1px solid #e8eef5;margin-bottom:18px}
+h1{margin-top:0;font-size:clamp(22px,2.4vw,30px)}h3{margin:22px 0 12px}p{color:var(--muted);line-height:1.6}label{display:block;font-size:13px;font-weight:700;color:#40546a;margin-top:10px}
+input,select{display:block;width:100%;box-sizing:border-box;padding:12px 13px;margin:8px 0 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:var(--ink);font:inherit;min-height:44px}input:focus,select:focus{outline:3px solid #bfdbfe;border-color:var(--blue)}
+button{background:var(--blue);color:white;border:0;padding:10px 13px;border-radius:9px;font-weight:700;cursor:pointer;margin:2px}button:hover{filter:brightness(1.06)}button:disabled{opacity:.55;cursor:wait}.btn-green{background:var(--green)}.btn-light{background:#e8f1fb;color:#164e80}.btn-red{background:var(--red)}.btn-amber{background:var(--amber)}
+.toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin:14px 0}.toolbar-actions,.filters{display:flex;gap:9px;flex-wrap:wrap;align-items:center}.filters>*{flex:1;min-width:160px}.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:13px;margin:18px 0}.stat{padding:17px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#fff,#f8fbff)}.stat-label{color:var(--muted);font-size:13px;font-weight:700}.stat-value{font-size:26px;font-weight:800;margin-top:8px;color:var(--navy)}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;font-size:13px;background:#fff}th{background:#f1f5f9;color:#43556b;text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.35px;position:sticky;top:0}th,td{padding:11px 12px;border-bottom:1px solid #e8edf3;white-space:nowrap;vertical-align:middle}tbody tr:hover{background:#f8fbff}.badge{display:inline-block;border-radius:999px;padding:5px 9px;font-size:12px;font-weight:700;background:#fef3c7;color:#92400e}.badge-done{background:#dcfce7;color:#166534}.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:0 14px}.form-actions{display:flex;flex-wrap:wrap;gap:9px;margin-top:8px}.hide{display:none!important}footer{text-align:center;padding:25px;color:var(--muted);font-size:13px}@media(max-width:600px){main{margin:15px auto;padding:0 9px 20px}.filters>*{min-width:100%}th,td{padding:9px;font-size:12px}}
+</style>
+ </head>
+ <body>
+  <header>
+<img src="images.png" alt="IPSEN Logistics" style="width:220px;max-width:90%;height:auto;display:block;margin:0 auto 15px;">
+   <h2>IPSEN | PORTAIL CLIENTS</h2>
+   <div>Suivi du stock et des opérations logistiques</div>
+  </header>
+  <main>
+   <section class="card">
+    <h1>Bienvenue sur votre portail</h1>
+    <p>Consultez vos informations logistiques depuis un espace sécurisé.</p>
+    <h3>Connexion client</h3>
+    <form id="login">
+     <label for="email">Adresse e-mail</label> <input id="email" type="email" placeholder="Votre e-mail" required> <label for="password">Mot de passe</label> <input id="password" type="password" placeholder="Votre mot de passe" required>
+     <button type="submit">Se connecter</button>
+     <p id="message"></p>
+    </form>
+   </section>
+  </main>
+  <footer>IPSEN Logistics — Portail de consultation du stock et suivi des conteneurs</footer>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+const sb = window.supabase.createClient(
+  "https://lyzxhpkpboqsluuyrypr.supabase.co",
+  "sb_publishable_4FS53EVOwmQ9GHyPB241mA_5JE64o12"
+);
+const form = document.getElementById("login");
+const message = document.getElementById("message");
+const main = document.querySelector("main");
+
+function addLogout(panel) {
+  const btn = panel.querySelector("#logout");
+  btn.addEventListener("click", async () => {
+    await sb.auth.signOut();
+    location.reload();
+  });
+}
+function cell(value) {
+  const td = document.createElement("td");
+  td.textContent = value == null ? "" : String(value);
+  td.style.cssText = "padding:9px;border-bottom:1px solid #e2e8f0;white-space:nowrap";
+  return td;
+}
+function showTable(panel, records, clientNames, admin, reloadData, user) {
+  const rows=panel.querySelector("#stockRows"), search=panel.querySelector("#search"), statusFilter=panel.querySelector("#statusFilter"), count=panel.querySelector("#count");
+  const clientFilter=panel.querySelector("#clientFilter"), dateFilter=panel.querySelector("#dateFilter"), sortFilter=panel.querySelector("#sortFilter");
+  function render(){
+    const q=search.value.trim().toLowerCase(), wanted=statusFilter.value, clientWanted=clientFilter?.value||"", dateWanted=dateFilter?.value||"";
+    let filtered=records.filter(r=>[clientNames[r.client_id]||"",r.esc||"",r.rub||"",r.statut||"",r.date_entree||"",r.date_sortie||""].some(v=>String(v).toLowerCase().includes(q))
+      &&(!wanted||(wanted==="livree"?/livr/i.test(r.statut||""):! /livr/i.test(r.statut||"")))
+      &&(!clientWanted||r.client_id===clientWanted)&&(!dateWanted||r.date_entree===dateWanted));
+    filtered.sort((a,b)=>String(a.date_entree||"").localeCompare(String(b.date_entree||""))*(sortFilter?.value==="asc"?1:-1));
+    rows.replaceChildren();
+    filtered.forEach(r=>{const tr=document.createElement("tr");
+      const vals=admin?[clientNames[r.client_id]||"Client non associé",r.esc,r.rub,r.date_entree,r.colis,r.poids_brut,{badge:true,text:r.statut||"En cours",done:/livr/i.test(r.statut||"")},r.date_sortie||"—"]:[r.esc,r.rub,r.date_entree,r.colis,r.poids_brut,{badge:true,text:r.statut||"En cours",done:/livr/i.test(r.statut||"")},r.date_sortie||"—"];
+      vals.forEach(v=>tr.appendChild(cell(v)));
+      const actionTd=document.createElement("td");
+      if(admin){
+        const mark=document.createElement("button");mark.className="btn-green";mark.textContent=/livr/i.test(r.statut||"")?"✓ Livrée":"✓ Marquer comme livrée";mark.disabled=/livr/i.test(r.statut||"");
+        mark.addEventListener("click",async()=>{if(!confirm(`Marquer l'escale ${r.esc} comme livrée ?`))return;mark.disabled=true;const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());const {error}=await sb.from("stock_records").update({statut:"Livrée",date_sortie:today}).eq("esc",r.esc).eq("client_id",r.client_id);if(error){alert("Erreur Supabase : "+error.message);mark.disabled=false;return;}await reloadData();});actionTd.appendChild(mark);
+        const edit=document.createElement("button");edit.className="btn-light";edit.textContent="✏️ Modifier";edit.addEventListener("click",async()=>{
+          const esc=prompt("Numéro ESC :",r.esc||"");if(esc===null)return;if(!esc.trim()){alert("Le numéro ESC est obligatoire.");return;}
+          const rub=prompt("Référence RUB :",r.rub||"");if(rub===null)return;
+          const date=prompt("Date d'entrée (AAAA-MM-JJ) :",r.date_entree||"");if(date===null)return;if(date&&!/^\d{4}-\d{2}-\d{2}$/.test(date)){alert("Format de date invalide.");return;}
+          const colis=prompt("Nombre de colis :",r.colis??0);if(colis===null)return;if(!Number.isFinite(Number(colis))||Number(colis)<0){alert("Nombre de colis invalide.");return;}
+          const poids=prompt("Poids brut (kg) :",r.poids_brut??0);if(poids===null)return;if(!Number.isFinite(Number(poids))||Number(poids)<0){alert("Poids invalide.");return;}
+          if(!confirm("Enregistrer les modifications ?"))return;edit.disabled=true;
+          const {error}=await sb.from("stock_records").update({esc:esc.trim(),rub:rub.trim()||null,date_entree:date||null,colis:Number(colis),poids_brut:Number(poids)}).eq("esc",r.esc).eq("client_id",r.client_id);
+          if(error){alert("Erreur Supabase : "+error.message);edit.disabled=false;return;}await reloadData();
+        });actionTd.appendChild(edit);
+        const del=document.createElement("button");del.className="btn-red";del.textContent="🗑 Effacer";del.addEventListener("click",async()=>{if(!confirm(`Effacer définitivement l'escale ${r.esc} ?`))return;del.disabled=true;const {error}=await sb.from("stock_records").delete().eq("esc",r.esc).eq("client_id",r.client_id);if(error){alert("Suppression refusée : "+error.message);del.disabled=false;return;}await reloadData();});actionTd.appendChild(del);
+      } else {
+        const req=document.createElement("button");req.className="btn-amber";req.textContent="Demander la sortie";req.addEventListener("click",async()=>{if(!confirm(`Envoyer à IPSEN une demande de sortie pour l'escale ${r.esc} ?`))return;req.disabled=true;const {error}=await sb.from("exit_requests").insert({client_id:r.client_id,stock_esc:r.esc,requested_by:user.id,status:"Nouvelle"});if(error){alert("La demande n'a pas pu être envoyée. Vérifiez que la table exit_requests est créée et que les droits RLS sont configurés.");req.disabled=false;return;}req.textContent="Demande envoyée";});actionTd.appendChild(req);
+      }
+      tr.appendChild(actionTd);rows.appendChild(tr);
+    });count.textContent=`${filtered.length} escale(s) affichée(s)`;
+  }
+  [search,statusFilter,clientFilter,dateFilter,sortFilter].filter(Boolean).forEach(el=>el.addEventListener(el===search?"input":"change",render));render();
+}
+
+function makePanel(title, admin) {
+  const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
+  panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
+  <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
+  ${admin?`<section id="newEscaleForm" class="hide" style="background:#f8fbff;border:1px solid #dbeafe;padding:18px;border-radius:14px;margin:18px 0"><h3>＋ Créer une nouvelle escale</h3><form id="escaleForm"><div class="form-grid"><div><label for="eClient">Client *</label><select id="eClient" required><option value="">Choisir un client</option></select></div><div><label for="eEsc">Numéro d'escale (ESC) *</label><input id="eEsc" required placeholder="Ex. ESC-2026-001"></div><div><label for="eRub">Référence (RUB)</label><input id="eRub" placeholder="Référence / désignation"></div><div><label for="eDate">Date d'entrée *</label><input id="eDate" type="date" required></div><div><label for="eColis">Nombre de colis</label><input id="eColis" type="number" min="0" step="1" value="0"></div><div><label for="ePoids">Poids brut (kg)</label><input id="ePoids" type="number" min="0" step="0.01" value="0"></div></div><div class="form-actions"><button type="submit" class="btn-green" id="saveEscale">Enregistrer l'escale</button><button type="button" class="btn-light" id="cancelEscale">Annuler</button></div><p id="eMsg" role="status"></p></form></section>`:''}
+  <div class="toolbar"><h3 style="margin:0">Suivi des escales</h3></div><div class="filters"><input id="search" placeholder="Rechercher ESC, RUB, client…" aria-label="Recherche"><select id="statusFilter"><option value="">Tous les statuts</option><option value="livree">Livrée</option><option value="nonlivree">Non livrée</option></select>${admin?'<select id="clientFilter"><option value="">Tous les clients</option></select>':''}<input id="dateFilter" type="date" aria-label="Filtrer par date d'entrée"><select id="sortFilter"><option value="desc">Date décroissante</option><option value="asc">Date croissante</option></select></div>
+  <div class="table-wrap"><table><thead><tr>${admin?'<th>Client</th>':''}<th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut (kg)</th><th>Statut</th><th>Date livraison</th><th>Action</th></tr></thead><tbody id="stockRows"></tbody></table></div><p id="count"></p>`;
+  main.appendChild(panel);addLogout(panel);return panel;
+}
+
+async function loadPortal(user, profile) {
+  form.style.display = "none";
+  document.querySelector("main > .card").querySelector("h3").style.display = "none";
+  message.textContent = "";
+  const isAdmin = profile.role === "admin";
+  if (!isAdmin && !profile.client_id) {
+    message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
+    form.style.display = "block"; await sb.auth.signOut(); return;
+  }
+  const panel = makePanel(isAdmin ? "Dashboard Admin" : "Espace Client", isAdmin);
+  const stats = panel.querySelector("#stats");
+  let clients = [], records = [];
+  if (isAdmin) {
+    const [cr, sr] = await Promise.all([
+      sb.from("clients").select("id,name").order("name"),
+      sb.from("stock_records").select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").order("date_entree", {ascending:false})
+    ]);
+    if (cr.error || sr.error) { stats.textContent = "Erreur de chargement des données. Vérifiez les politiques RLS et les colonnes."; return; }
+    clients = cr.data || []; records = sr.data || [];
+  } else {
+    const [cr, sr] = await Promise.all([
+      sb.from("clients").select("id,name").eq("id", profile.client_id).single(),
+      sb.from("stock_records").select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").eq("client_id", profile.client_id).order("date_entree", {ascending:false})
+    ]);
+    if (cr.error || sr.error) { stats.textContent = "Impossible de charger votre stock. Vérifiez les droits RLS et votre association client."; return; }
+    clients = cr.data ? [cr.data] : []; records = sr.data || [];
+    const name = clients[0]?.name || "Espace Client";
+    panel.querySelector("h1").textContent = name;
+    panel.querySelector("p").textContent = `Bienvenue ${name} — consultation de votre stock uniquement.`;
+  }
+  const clientNames = Object.fromEntries(clients.map(c => [c.id, c.name]));
+  const clientFilter=panel.querySelector("#clientFilter");
+  if(clientFilter) clients.forEach(c=>{const o=document.createElement("option");o.value=c.id;o.textContent=c.name;clientFilter.appendChild(o);});
+  const totalColis = records.reduce((sum,r) => sum + (Number(r.colis)||0), 0);
+  const totalWeight = records.reduce((sum,r) => sum + (Number(r.poids_brut)||0), 0);
+  stats.innerHTML = `<p><b>${isAdmin ? 'Clients' : 'Votre client'} :</b> ${isAdmin ? clients.length : (clients[0]?.name || '')}</p><p><b>Opérations :</b> ${records.length}</p><p><b>Total colis :</b> ${totalColis.toLocaleString('fr-FR')}</p><p><b>Poids brut :</b> ${totalWeight.toLocaleString('fr-FR')} kg</p>`;
+  const redraw=async()=>{const res=isAdmin?await sb.from("stock_records").select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").order("date_entree",{ascending:false}):await sb.from("stock_records").select("client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").eq("client_id",profile.client_id).order("date_entree",{ascending:false});if(res.error){alert("Impossible de recharger les escales : "+res.error.message);return;}records=res.data||[];const sumColis=records.reduce((a,r)=>a+(Number(r.colis)||0),0),sumWeight=records.reduce((a,r)=>a+(Number(r.poids_brut)||0),0),done=records.filter(r=>/livr/i.test(r.statut||"")).length;stats.innerHTML=`<div class="stat"><div class="stat-label">Total escales</div><div class="stat-value">${records.length}</div></div><div class="stat"><div class="stat-label">En cours</div><div class="stat-value">${records.length-done}</div></div><div class="stat"><div class="stat-label">Livrées</div><div class="stat-value">${done}</div></div><div class="stat"><div class="stat-label">Total colis</div><div class="stat-value">${sumColis.toLocaleString("fr-FR")}</div></div><div class="stat"><div class="stat-label">Poids brut</div><div class="stat-value">${sumWeight.toLocaleString("fr-FR")} kg</div></div>${isAdmin?`<div class="stat"><div class="stat-label">Clients</div><div class="stat-value">${clients.length}</div></div>`:""}`;showTable(panel,records,clientNames,isAdmin,redraw,user);};
+  if(isAdmin){const open=panel.querySelector("#newEscaleForm");panel.querySelector("#newEscaleBtn").addEventListener("click",()=>open.classList.toggle("hide"));panel.querySelector("#cancelEscale").addEventListener("click",()=>{panel.querySelector("#escaleForm").reset();open.classList.add("hide");});panel.querySelector("#escaleForm").addEventListener("submit",async e=>{e.preventDefault();const msg=panel.querySelector("#eMsg"),btn=panel.querySelector("#saveEscale"),client_id=panel.querySelector("#eClient").value,esc=panel.querySelector("#eEsc").value.trim();if(!client_id||!esc){msg.textContent="Client et ESC obligatoires.";return;}btn.disabled=true;const {error}=await sb.from("stock_records").insert({client_id,esc,rub:panel.querySelector("#eRub").value.trim()||null,date_entree:panel.querySelector("#eDate").value,colis:Number(panel.querySelector("#eColis").value)||0,poids_brut:Number(panel.querySelector("#ePoids").value)||0,statut:"En cours",date_sortie:null});if(error){msg.textContent="Erreur Supabase : "+error.message;btn.disabled=false;return;}msg.textContent="Escale créée.";panel.querySelector("#escaleForm").reset();open.classList.add("hide");btn.disabled=false;await redraw();});}
+  await redraw();
+  if (isAdmin) await addContainerModule(panel, clients);
+}
+
+function formatDate(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("fr-FR", {dateStyle:"short", timeStyle:"short", timeZone:"Africa/Tunis"});
+}
+function duration(entry, exit) {
+  if (!entry) return "—";
+  // Parse timestamps safely and avoid displaying negative durations.
+  const start = Date.parse(entry);
+  const end = exit ? Date.parse(exit) : Date.now();
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return "—";
+  const totalMinutes = Math.max(0, Math.floor((end - start) / 60000));
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days} j ${hours} h ${minutes} min`;
+  if (hours > 0) return `${hours} h ${minutes} min`;
+  return `${minutes} min`;
+}
+async function addContainerModule(parent, clients) {
+  const section = document.createElement("section");
+  section.className = "card"; section.style.marginTop = "20px";
+  section.innerHTML = `
+    <h1>🚛 Gestion des conteneurs</h1>
+    <p>Mode rapide : saisissez le numéro, puis confirmez directement l’entrée ou la sortie. Aucun client requis.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0">
+      <div style="background:#edf7f3;padding:14px;border-radius:10px"><small>Dans le parc</small><h2 id="cInside">—</h2></div>
+      <div style="background:#eef4fb;padding:14px;border-radius:10px"><small>Entrées aujourd'hui</small><h2 id="cTodayIn">—</h2></div>
+      <div style="background:#fff5e8;padding:14px;border-radius:10px"><small>Sorties aujourd'hui</small><h2 id="cTodayOut">—</h2></div>
+    </div>
+    <h3>Nouvelle opération rapide</h3>
+    <label for="cNumber">Numéro du conteneur</label>
+    <input id="cNumber" placeholder="Ex. MSKU1234567" autocomplete="off" autocapitalize="characters" autofocus>
+    <label for="cNotes">Notes (facultatif)</label><input id="cNotes" placeholder="Chauffeur, camion, remarque…">
+    <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>
+    <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
+    <h3>Historique des mouvements</h3><input id="cSearch" placeholder="Rechercher un numéro">
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Conteneur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Notes</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
+    <p id="cCount"></p>`;
+  parent.appendChild(section);
+  const el = id => section.querySelector("#"+id);
+  let movements = [];
+  async function refresh() {
+    const {data,error}=await sb.from("container_movements").select("id,container_number,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
+    if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
+    movements=data||[];
+    const today=new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date());
+    el("cInside").textContent=movements.filter(x=>!x.exit_at).length;
+    el("cTodayIn").textContent=movements.filter(x=>x.entry_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.entry_at))===today).length;
+    el("cTodayOut").textContent=movements.filter(x=>x.exit_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.exit_at))===today).length;
+    renderRows();
+  }
+  function renderRows(){
+    const q=el("cSearch").value.trim().toLowerCase(), tbody=el("cRows"); tbody.replaceChildren();
+    const filtered=movements.filter(x=>[x.container_number,x.status||"",x.notes||""].some(v=>String(v).toLowerCase().includes(q)));
+    filtered.forEach(x=>{
+      const tr=document.createElement("tr");
+      const vals=[x.container_number,formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc",x.notes||"—"];
+      vals.forEach(v=>tr.appendChild(cell(v)));
+      const actionCell=document.createElement("td");
+      const del=document.createElement("button");
+      del.type="button"; del.textContent="Effacer";
+      del.style.cssText="background:#b91c1c;color:#fff;border:0;border-radius:6px;padding:7px 10px;cursor:pointer;white-space:nowrap";
+      del.addEventListener("click",()=>deleteMovement(x,del));
+      actionCell.appendChild(del); tr.appendChild(actionCell); tbody.appendChild(tr);
+    });
+    el("cCount").textContent=`${filtered.length} mouvement(s) affiché(s)`;
+  }
+  async function deleteMovement(movement, button){
+    const label=`${movement.container_number} — entrée ${formatDate(movement.entry_at)}`;
+    if(!window.confirm(`Supprimer définitivement ce mouvement ?\n${label}\nCette action est irréversible.`)) return;
+    button.disabled=true; button.textContent="Suppression…";
+    el("cMsg").textContent="Suppression du mouvement…";
+    try{
+      const {error}=await sb.from("container_movements").delete().eq("id",movement.id);
+      if(error) throw error;
+      el("cMsg").textContent=`Mouvement ${movement.container_number} supprimé.`;
+      await refresh();
+    }catch(err){
+      el("cMsg").textContent="Suppression refusée : "+(err.message||"vérifiez les autorisations DELETE (RLS) dans Supabase.");
+      button.disabled=false; button.textContent="Effacer";
+    }
+  }
+  el("cSearch").addEventListener("input",renderRows);
+  // Saisie manuelle prioritaire : pas de chargement ni d'attente OCR.
+  el("cNumber").addEventListener("input", () => {
+    el("cNumber").value = el("cNumber").value.toUpperCase().replace(/\s+/g, "");
+  });
+  el("cNumber").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveMovement("entry");
+    }
+  });
+  async function saveMovement(action){
+    const number=el("cNumber").value.trim().toUpperCase().replace(/\s+/g,"");
+    if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(number)){el("cMsg").textContent="Vérifiez le numéro : format habituel 4 lettres + 7 caractères.";return;}
+    el("cEntry").disabled=el("cExit").disabled=true;el("cMsg").textContent="Enregistrement…";
+    try{
+      const active=movements.find(x=>x.container_number===number&&!x.exit_at);
+      if(action==="entry"){
+        if(active){el("cMsg").textContent="Ce conteneur est déjà enregistré dans le parc. Utilisez la sortie si nécessaire.";return;}
+        const {error}=await sb.from("container_movements").insert({container_number:number,client_id:null,notes:el("cNotes").value.trim()||null,created_by:(await sb.auth.getUser()).data.user?.id});
+        if(error)throw error;
+        el("cMsg").textContent=`Entrée enregistrée pour ${number}. Date et heure générées automatiquement.`;
+      }else{
+        if(!active){el("cMsg").textContent="Aucune entrée ouverte trouvée pour ce numéro. Vérifiez le numéro ou enregistrez l'entrée.";return;}
+        const {error}=await sb.from("container_movements").update({exit_at:new Date().toISOString(),status:"sorti",notes:el("cNotes").value.trim()||active.notes||null}).eq("id",active.id).is("exit_at",null);
+        if(error)throw error;
+        el("cMsg").textContent=`Sortie enregistrée pour ${number}. Durée dans le parc : ${duration(active.entry_at,new Date().toISOString())}.`;
+      }
+      el("cNumber").value="";el("cNotes").value="";el("cNumber").focus();await refresh();
+    }catch(err){el("cMsg").textContent="Erreur d'enregistrement : "+(err.message||"vérifiez la table et les autorisations Supabase.");}
+    finally{el("cEntry").disabled=el("cExit").disabled=false;}
+  }
+  el("cEntry").addEventListener("click",()=>saveMovement("entry"));
+  el("cExit").addEventListener("click",()=>saveMovement("exit"));
+  await refresh();
+}
+form.addEventListener("submit", async (e) => {
+  e.preventDefault(); message.textContent = "Connexion...";
+  const {data, error} = await sb.auth.signInWithPassword({
+    email: document.getElementById("email").value.trim(),
+    password: document.getElementById("password").value
+  });
+  if (error) { message.textContent = "Erreur de connexion : vérifiez l'e-mail et le mot de passe."; return; }
+  const {data: profile, error: pError} = await sb.from("profiles").select("role,client_id").eq("id", data.user.id).single();
+  if (pError || !profile) { message.textContent = "Profil introuvable. Contactez l'administrateur IPSEN."; await sb.auth.signOut(); return; }
+  await loadPortal(data.user, profile);
+});
+// Reprendre la session si l'utilisateur actualise la page.
+(async () => {
+  const {data: {session}} = await sb.auth.getSession();
+  if (!session) return;
+  const {data: profile, error} = await sb.from("profiles").select("role,client_id").eq("id", session.user.id).single();
+  if (!error && profile) await loadPortal(session.user, profile);
+})();
+</script>
+ </body>
+</html>
