@@ -69,8 +69,15 @@ function addLogout(panel) {
 }
 function cell(value) {
   const td = document.createElement("td");
-  td.textContent = value == null ? "" : String(value);
   td.style.cssText = "padding:9px;border-bottom:1px solid #e2e8f0;white-space:nowrap";
+  if (value && typeof value === "object" && value.badge === true) {
+    const badge = document.createElement("span");
+    badge.className = value.done ? "badge badge-done" : "badge";
+    badge.textContent = value.text || "En cours";
+    td.appendChild(badge);
+  } else {
+    td.textContent = value == null ? "" : String(value);
+  }
   return td;
 }
 function showTable(panel, records, clientNames, admin, reloadData, user) {
