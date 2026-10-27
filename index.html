@@ -379,13 +379,13 @@ async function addContainerModule(parent, clients, readOnly=false) {
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
     <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
     <h3>Historique des mouvements</h3><input id="cSearch" placeholder="Rechercher un numéro">
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule camion / transporteur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
     <p id="cCount"></p>`;
   parent.appendChild(section);
   const el = id => section.querySelector("#"+id);
   let movements = [];
   async function refresh() {
-    const {data,error}=await sb.from("container_movements").select("id,container_number,container_type,has_damage,exit_has_damage,truck_registration,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
+    const {data,error}=await sb.from("container_movements").select("id,container_number,container_type,has_damage,exit_has_damage,truck_registration,exit_truck_registration,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
     if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
     movements=data||[];
     const today=new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date());
@@ -399,7 +399,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const filtered=movements.filter(x=>[x.container_number,x.status||"",x.notes||""].some(v=>String(v).toLowerCase().includes(q)));
     filtered.forEach(x=>{
       const tr=document.createElement("tr");
-      const vals=[x.container_number,x.container_type?`${x.container_type} pieds`:"—",x.has_damage??"—",x.exit_has_damage??(x.exit_at?"Non renseigné":"—"),x.truck_registration||"—",formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc"];
+      const vals=[x.container_number,x.container_type?`${x.container_type} pieds`:"—",x.has_damage??"—",x.exit_has_damage??(x.exit_at?"Non renseigné":"—"),x.truck_registration||"—",x.exit_truck_registration|| (x.exit_at?"Non renseigné":"—"),formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc"];
       vals.forEach(v=>tr.appendChild(cell(v)));
       const actionCell=document.createElement("td");
       if (readOnly) {
@@ -461,8 +461,11 @@ async function addContainerModule(parent, clients, readOnly=false) {
         if(exitDamage===null)return;
         const normalizedExitDamage=exitDamage.trim().toLowerCase();
         if(!["oui","non"].includes(normalizedExitDamage)){el("cMsg").textContent="Réponse invalide : indiquez Oui ou Non pour les dégâts à la sortie.";return;}
+        const exitTruck=window.prompt("Matricule du camion / transporteur à la sortie :");
+        if(exitTruck===null)return;
+        if(!exitTruck.trim()){el("cMsg").textContent="Veuillez saisir le matricule du camion / transporteur à la sortie.";return;}
         const exitAt=new Date().toISOString();
-        const {error}=await sb.from("container_movements").update({exit_at:exitAt,exit_has_damage:normalizedExitDamage==="oui"?"Oui":"Non",status:"sorti"}).eq("id",active.id).is("exit_at",null);
+        const {error}=await sb.from("container_movements").update({exit_at:exitAt,exit_has_damage:normalizedExitDamage==="oui"?"Oui":"Non",exit_truck_registration:exitTruck.trim(),status:"sorti"}).eq("id",active.id).is("exit_at",null);
         if(error)throw error;
         el("cMsg").textContent=`Sortie enregistrée pour ${number}. Dégâts à la sortie : ${normalizedExitDamage==="oui"?"Oui":"Non"}. Durée dans le parc : ${duration(active.entry_at,exitAt)}.`;
       }
