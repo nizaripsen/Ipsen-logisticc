@@ -405,6 +405,11 @@ async function addContainerModule(parent, clients, readOnly=false) {
       if (readOnly) {
         actionCell.textContent="Consultation seule";
       } else {
+        const edit=document.createElement("button");
+        edit.type="button"; edit.textContent="Modifier";
+        edit.style.cssText="background:#2563eb;color:#fff;border:0;border-radius:6px;padding:7px 10px;cursor:pointer;white-space:nowrap;margin:0 4px 4px 0";
+        edit.addEventListener("click",()=>editMovement(x,edit));
+        actionCell.appendChild(edit);
         const del=document.createElement("button");
         del.type="button"; del.textContent="Effacer";
         del.style.cssText="background:#b91c1c;color:#fff;border:0;border-radius:6px;padding:7px 10px;cursor:pointer;white-space:nowrap";
@@ -414,6 +419,45 @@ async function addContainerModule(parent, clients, readOnly=false) {
       tr.appendChild(actionCell); tbody.appendChild(tr);
     });
     el("cCount").textContent=`${filtered.length} mouvement(s) affiché(s)`;
+  }
+  async function editMovement(movement, button){
+    // Admin only: correct common data-entry mistakes while keeping the existing movement record.
+    const ask=(label,current)=>window.prompt(label,current==null?"":String(current));
+    const number=ask("Numéro du conteneur :",movement.container_number);
+    if(number===null)return;
+    const cleanNumber=number.trim().toUpperCase().replace(/\s+/g,"");
+    if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(cleanNumber)){alert("Numéro invalide : format habituel 4 lettres + 7 caractères.");return;}
+    const type=ask("Type de conteneur (20, 40 ou 45 pieds) :",movement.container_type||"40");
+    if(type===null)return;
+    if(!["20","40","45"].includes(type.trim())){alert("Le type doit être 20, 40 ou 45.");return;}
+    const damageIn=ask("Dégâts à l'entrée (Oui/Non) :",movement.has_damage||"Non");
+    if(damageIn===null)return;
+    if(!["oui","non"].includes(damageIn.trim().toLowerCase())){alert("Indiquez Oui ou Non pour les dégâts à l'entrée.");return;}
+    const truckIn=ask("Matricule camion / transporteur à l'entrée :",movement.truck_registration||"");
+    if(truckIn===null)return;
+    let damageOut=movement.exit_has_damage, truckOut=movement.exit_truck_registration;
+    if(movement.exit_at){
+      damageOut=ask("Dégâts à la sortie (Oui/Non) :",movement.exit_has_damage||"Non");
+      if(damageOut===null)return;
+      if(!["oui","non"].includes(damageOut.trim().toLowerCase())){alert("Indiquez Oui ou Non pour les dégâts à la sortie.");return;}
+      truckOut=ask("Matricule camion / transporteur à la sortie :",movement.exit_truck_registration||"");
+      if(truckOut===null)return;
+    }
+    if(!window.confirm("Enregistrer les corrections de ce mouvement ?"))return;
+    button.disabled=true;button.textContent="Enregistrement…";el("cMsg").textContent="Mise à jour du mouvement…";
+    try{
+      const changes={container_number:cleanNumber,container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null};
+      if(movement.exit_at){
+        changes.exit_has_damage=damageOut.trim().toLowerCase()==="oui"?"Oui":"Non";
+        changes.exit_truck_registration=truckOut.trim()||null;
+      }
+      const {error}=await sb.from("container_movements").update(changes).eq("id",movement.id);
+      if(error)throw error;
+      el("cMsg").textContent=`Mouvement ${cleanNumber} modifié avec succès.`;
+      await refresh();
+    }catch(err){
+      el("cMsg").textContent="Modification refusée : "+(err.message||"vérifiez les autorisations UPDATE (RLS) dans Supabase.");
+    }finally{button.disabled=false;button.textContent="Modifier";}
   }
   async function deleteMovement(movement, button){
     const label=`${movement.container_number} — entrée ${formatDate(movement.entry_at)}`;
