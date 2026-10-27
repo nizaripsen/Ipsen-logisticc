@@ -120,11 +120,11 @@ function showTable(panel, records, clientNames, admin, reloadData, user, staff=f
   [search,statusFilter,clientFilter,dateFilter,sortFilter].filter(Boolean).forEach(el=>el.addEventListener(el===search?"input":"change",render));render();
 }
 
-function makePanel(title, admin) {
+function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
   panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${admin?`<nav id="adminSectionsNav" style="display:flex;flex-wrap:wrap;gap:12px;margin:18px 0 22px"><button type="button" id="showStockSection" class="btn-green" aria-pressed="true">📦 Gestion de stock</button><button type="button" id="showContainersSection" class="btn-light" aria-pressed="false">🚛 Gestion des conteneurs</button></nav>`:''}
-  <div id="stockManagementView">
+  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button></nav>`:''}
+  <div id="stockManagementView" class="${(admin||staff)?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
   ${admin?`<section id="newEscaleForm" class="hide" style="background:#f8fbff;border:1px solid #dbeafe;padding:18px;border-radius:14px;margin:18px 0"><h3>＋ Créer une nouvelle escale</h3><form id="escaleForm"><div class="form-grid"><div><label for="eClient">Client *</label><select id="eClient" required><option value="">Choisir un client</option></select></div><div><label for="eEsc">Numéro d'escale (ESC) *</label><input id="eEsc" required placeholder="Ex. ESC-2026-001"></div><div><label for="eRub">Référence (RUB)</label><input id="eRub" placeholder="Référence / désignation"></div><div><label for="eDate">Date d'entrée *</label><input id="eDate" type="date" required></div><div><label for="eColis">Nombre de colis</label><input id="eColis" type="number" min="0" step="1" value="0"></div><div><label for="ePoids">Poids brut (kg)</label><input id="ePoids" type="number" min="0" step="0.01" value="0"></div></div><div class="form-actions"><button type="submit" class="btn-green" id="saveEscale">Enregistrer l'escale</button><button type="button" class="btn-light" id="cancelEscale">Annuler</button></div><p id="eMsg" role="status"></p></form></section>`:''}
@@ -143,7 +143,7 @@ async function loadPortal(user, profile) {
     message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
     form.style.display = "block"; await sb.auth.signOut(); return;
   }
-  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — consultation" : "Espace Client"), isAdmin);
+  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — consultation" : "Espace Client"), isAdmin, isStaff);
   const stats = panel.querySelector("#stats");
   let clients = [], records = [];
   if (isAdmin || isStaff) {
@@ -258,29 +258,29 @@ async function loadPortal(user, profile) {
     });
   }
   await redraw();
-  if (isAdmin) {
-    await addContainerModule(panel, clients, false);
-    await addExitRequestsModule(panel, clientNames);
+  if (isAdmin || isStaff) {
+    await addContainerModule(panel, clients, isStaff);
+    if (isAdmin) {
+      await addExitRequestsModule(panel, clientNames);
+      const requestsSection=panel.querySelector("#refreshRequests")?.closest("section");
+      if(requestsSection) panel.querySelector("#stockManagementView")?.appendChild(requestsSection);
+    }
     const stockView=panel.querySelector("#stockManagementView");
-    const requestsSection=panel.querySelector("#refreshRequests")?.closest("section");
-    if(stockView && requestsSection) stockView.appendChild(requestsSection);
     const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection");
     const containersView=panel.querySelector("#containerManagementView");
     const showSection=(which)=>{
       const showStock=which==="stock";
       stockView?.classList.toggle("hide",!showStock);
       containersView?.classList.toggle("hide",showStock);
-      stockBtn.className=showStock?"btn-green":"btn-light";
-      containersBtn.className=showStock?"btn-light":"btn-green";
+      stockBtn.className="section-nav-button "+(showStock?"btn-green":"btn-light");
+      containersBtn.className="section-nav-button "+(showStock?"btn-light":"btn-green");
       stockBtn.setAttribute("aria-pressed",String(showStock));
       containersBtn.setAttribute("aria-pressed",String(!showStock));
       if(showStock){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
     containersBtn.addEventListener("click",()=>showSection("containers"));
-    showSection("stock");
-  } else if (isStaff) {
-    await addContainerModule(panel, clients, true);
+    // À l'ouverture, aucune donnée n'est affichée avant le choix de l'utilisateur.
   }
 }
 
@@ -358,7 +358,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
   const section = document.createElement("section");
   section.className = "card"; section.style.marginTop = "20px";
   section.id = "containerManagementView";
-  if (!readOnly) section.classList.add("hide");
+  section.classList.add("hide");
   section.innerHTML = `
     <h1>🚛 Gestion des conteneurs</h1>
     <p>Mode rapide : saisissez le numéro, puis confirmez directement l’entrée ou la sortie. Aucun client requis.</p>
