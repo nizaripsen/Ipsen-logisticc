@@ -81,22 +81,29 @@ function cell(value) {
   }
   return td;
 }
+function isDelivered(status) {
+  const value = String(status || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[\s_-]+/g, " ").trim();
+  // « Non livré » doit rester non livré, même s’il contient le mot « livré ».
+  if (/\bnon\s*livr/.test(value) || /\bpas\s*livr/.test(value)) return false;
+  return /\blivr/.test(value);
+}
+
 function showTable(panel, records, clientNames, admin, reloadData, user, staff=false) {
   const rows=panel.querySelector("#stockRows"), search=panel.querySelector("#search"), statusFilter=panel.querySelector("#statusFilter"), count=panel.querySelector("#count");
   const clientFilter=panel.querySelector("#clientFilter"), dateFilter=panel.querySelector("#dateFilter"), sortFilter=panel.querySelector("#sortFilter");
   function render(){
     const q=search.value.trim().toLowerCase(), wanted=statusFilter.value, clientWanted=clientFilter?.value||"", dateWanted=dateFilter?.value||"";
     let filtered=records.filter(r=>[clientNames[r.client_id]||"",r.esc||"",r.rub||"",r.statut||"",r.date_entree||"",r.date_sortie||""].some(v=>String(v).toLowerCase().includes(q))
-      &&(!wanted||(wanted==="livree"?/livr/i.test(r.statut||""):! /livr/i.test(r.statut||"")))
+      &&(!wanted||(wanted==="livree"?isDelivered(r.statut):! isDelivered(r.statut)))
       &&(!clientWanted||r.client_id===clientWanted)&&(!dateWanted||r.date_entree===dateWanted));
     filtered.sort((a,b)=>String(a.date_entree||"").localeCompare(String(b.date_entree||""))*(sortFilter?.value==="asc"?1:-1));
     rows.replaceChildren();
     filtered.forEach(r=>{const tr=document.createElement("tr");
-      const vals=admin?[clientNames[r.client_id]||"Client non associé",r.esc,r.rub,r.date_entree,r.colis,r.poids_brut,{badge:true,text:r.statut||"En cours",done:/livr/i.test(r.statut||"")},r.date_sortie||"—"]:[r.esc,r.rub,r.date_entree,r.colis,r.poids_brut,{badge:true,text:r.statut||"En cours",done:/livr/i.test(r.statut||"")},r.date_sortie||"—"];
+      const vals=admin?[clientNames[r.client_id]||"Client non associé",r.esc,r.rub,r.date_entree,r.colis,r.poids_brut,{badge:true,text:r.statut||"En cours",done:isDelivered(r.statut)},r.date_sortie||"—"]:[r.esc,r.rub,r.date_entree,r.colis,r.poids_brut,{badge:true,text:r.statut||"En cours",done:isDelivered(r.statut)},r.date_sortie||"—"];
       vals.forEach(v=>tr.appendChild(cell(v)));
       const actionTd=document.createElement("td");
       if(admin){
-        const mark=document.createElement("button");mark.className="btn-green";mark.textContent=/livr/i.test(r.statut||"")?"✓ Livrée":"✓ Marquer comme livrée";mark.disabled=/livr/i.test(r.statut||"");
+        const mark=document.createElement("button");mark.className="btn-green";mark.textContent=isDelivered(r.statut)?"✓ Livrée":"✓ Marquer comme livrée";mark.disabled=isDelivered(r.statut);
         mark.addEventListener("click",async()=>{if(!confirm(`Marquer l'escale ${r.esc} comme livrée ?`))return;mark.disabled=true;const today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());const {error}=await sb.from("stock_records").update({statut:"Livrée",date_sortie:today}).eq("esc",r.esc).eq("client_id",r.client_id);if(error){alert("Erreur Supabase : "+error.message);mark.disabled=false;return;}await reloadData();});actionTd.appendChild(mark);
         const edit=document.createElement("button");edit.className="btn-light";edit.textContent="✏️ Modifier";edit.addEventListener("click",async()=>{
           const esc=prompt("Numéro ESC :",r.esc||"");if(esc===null)return;if(!esc.trim()){alert("Le numéro ESC est obligatoire.");return;}
@@ -192,7 +199,7 @@ async function loadPortal(user, profile) {
   const totalColis = records.reduce((sum,r) => sum + (Number(r.colis)||0), 0);
   const totalWeight = records.reduce((sum,r) => sum + (Number(r.poids_brut)||0), 0);
   stats.innerHTML = `<div class="stat"><div class="stat-label">${isAdmin ? 'Clients' : 'Votre client'}</div><div class="stat-value" style="font-size:${isAdmin?'26px':'18px'}">${isAdmin ? clients.length : (clients[0]?.name || '')}</div></div><div class="stat"><div class="stat-label">Opérations</div><div class="stat-value">${records.length}</div></div><div class="stat"><div class="stat-label">Total colis</div><div class="stat-value">${totalColis.toLocaleString('fr-FR')}</div></div><div class="stat"><div class="stat-label">Poids brut</div><div class="stat-value">${totalWeight.toLocaleString('fr-FR')} kg</div></div>`;
-  const redraw=async()=>{const res=(isAdmin||isStaff)?await sb.from("stock_records").select("id,client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").order("date_entree",{ascending:false}):await sb.from("stock_records").select("id,client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").eq("client_id",profile.client_id).order("date_entree",{ascending:false});if(res.error){alert("Impossible de recharger les escales : "+res.error.message);return;}records=res.data||[];const sumColis=records.reduce((a,r)=>a+(Number(r.colis)||0),0),sumWeight=records.reduce((a,r)=>a+(Number(r.poids_brut)||0),0),done=records.filter(r=>/livr/i.test(r.statut||"")).length;stats.innerHTML=`<div class="stat"><div class="stat-label">Total escales</div><div class="stat-value">${records.length}</div></div><div class="stat"><div class="stat-label">En cours</div><div class="stat-value">${records.length-done}</div></div><div class="stat"><div class="stat-label">Livrées</div><div class="stat-value">${done}</div></div><div class="stat"><div class="stat-label">Total colis</div><div class="stat-value">${sumColis.toLocaleString("fr-FR")}</div></div><div class="stat"><div class="stat-label">Poids brut</div><div class="stat-value">${sumWeight.toLocaleString("fr-FR")} kg</div></div>${isAdmin?`<div class="stat"><div class="stat-label">Clients</div><div class="stat-value">${clients.length}</div></div>`:""}` ;showTable(panel,records,clientNames,isAdmin,redraw,user,isStaff);};
+  const redraw=async()=>{const res=(isAdmin||isStaff)?await sb.from("stock_records").select("id,client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").order("date_entree",{ascending:false}):await sb.from("stock_records").select("id,client_id,esc,rub,date_entree,colis,poids_brut,statut,date_sortie").eq("client_id",profile.client_id).order("date_entree",{ascending:false});if(res.error){alert("Impossible de recharger les escales : "+res.error.message);return;}records=res.data||[];const sumColis=records.reduce((a,r)=>a+(Number(r.colis)||0),0),sumWeight=records.reduce((a,r)=>a+(Number(r.poids_brut)||0),0),done=records.filter(r=>isDelivered(r.statut)).length;stats.innerHTML=`<div class="stat"><div class="stat-label">Total escales</div><div class="stat-value">${records.length}</div></div><div class="stat"><div class="stat-label">En cours</div><div class="stat-value">${records.length-done}</div></div><div class="stat"><div class="stat-label">Livrées</div><div class="stat-value">${done}</div></div><div class="stat"><div class="stat-label">Total colis</div><div class="stat-value">${sumColis.toLocaleString("fr-FR")}</div></div><div class="stat"><div class="stat-label">Poids brut</div><div class="stat-value">${sumWeight.toLocaleString("fr-FR")} kg</div></div>${isAdmin?`<div class="stat"><div class="stat-label">Clients</div><div class="stat-value">${clients.length}</div></div>`:""}` ;showTable(panel,records,clientNames,isAdmin,redraw,user,isStaff);};
   if(isAdmin){
     const open=panel.querySelector("#newEscaleForm");
     panel.querySelector("#newEscaleBtn").addEventListener("click",()=>{open.classList.toggle("hide");panel.querySelector("#importExcelPanel").classList.add("hide");});
