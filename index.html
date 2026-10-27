@@ -374,18 +374,59 @@ async function addContainerModule(parent, clients, readOnly=false) {
     <select id="cType" required><option value="40">40 pieds</option><option value="20">20 pieds</option><option value="45">45 pieds</option></select>
     <label for="cDamage">Dégâts à l’arrivée ?</label>
     <select id="cDamage" required><option value="Non">Non</option><option value="Oui">Oui</option></select>
+    <label for="cCompany">Compagnie du conteneur</label>
+    <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap">
+      <select id="cCompany" style="flex:1;min-width:220px" required><option value="">Chargement des compagnies…</option></select>
+      <button id="cAddCompany" type="button" style="background:#138a62;white-space:nowrap">+ Ajouter une compagnie</button>
+    </div>
     <label for="cTruck">Matricule camion / transporteur</label>
     <input id="cTruck" placeholder="Ex. 123 تونس 4567" autocomplete="off" required>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
     <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
     <h3>Historique des mouvements</h3><input id="cSearch" placeholder="Rechercher un numéro">
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
     <p id="cCount"></p>`;
   parent.appendChild(section);
   const el = id => section.querySelector("#"+id);
   let movements = [];
+  const defaultCompanies = ["MESSINA", "CTN", "MSC", "AKKON", "TUNISHIP"];
+  let companyNames = [...defaultCompanies];
+  function renderCompanyOptions(selected="") {
+    const select=el("cCompany");
+    if(!select) return;
+    select.replaceChildren();
+    const placeholder=document.createElement("option"); placeholder.value=""; placeholder.textContent="Choisir une compagnie"; select.appendChild(placeholder);
+    companyNames.forEach(name=>{const opt=document.createElement("option");opt.value=name;opt.textContent=name;select.appendChild(opt);});
+    if(selected && !companyNames.includes(selected)) { companyNames.push(selected); renderCompanyOptions(selected); return; }
+    select.value=selected;
+  }
+  async function loadCompanies() {
+    if(!el("cCompany")) return;
+    const {data,error}=await sb.from("container_companies").select("name").order("name",{ascending:true});
+    if(!error && data) companyNames=[...new Set([...defaultCompanies,...data.map(x=>String(x.name||"").trim().toUpperCase()).filter(Boolean)])];
+    renderCompanyOptions("");
+    if(error) el("cMsg").textContent="Liste locale affichée. Pour conserver les nouvelles compagnies, exécutez le SQL fourni dans Supabase.";
+  }
+  async function addCompany() {
+    const raw=window.prompt("Nom de la nouvelle compagnie :");
+    if(raw===null) return;
+    const name=raw.trim().toUpperCase();
+    if(!name){alert("Saisissez un nom de compagnie.");return;}
+    if(companyNames.includes(name)){renderCompanyOptions(name);el("cMsg").textContent=`${name} existe déjà dans la liste.`;return;}
+    const button=el("cAddCompany"); button.disabled=true; button.textContent="Ajout…";
+    try {
+      const {error}=await sb.from("container_companies").insert({name,created_by:(await sb.auth.getUser()).data.user?.id});
+      if(error) throw error;
+      companyNames.push(name); companyNames.sort((a,b)=>a.localeCompare(b)); renderCompanyOptions(name);
+      el("cMsg").textContent=`Compagnie ${name} ajoutée et enregistrée pour les prochaines saisies.`;
+    } catch(err) {
+      el("cMsg").textContent="Impossible d'enregistrer la compagnie : "+(err.message||"vérifiez la table container_companies et les droits RLS. Exécutez le SQL fourni.");
+    } finally {button.disabled=false;button.textContent="+ Ajouter une compagnie";}
+  }
+  if(!readOnly && el("cAddCompany")) el("cAddCompany").addEventListener("click",addCompany);
+  await loadCompanies();
   async function refresh() {
-    const {data,error}=await sb.from("container_movements").select("id,container_number,container_type,has_damage,exit_has_damage,truck_registration,exit_truck_registration,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
+    const {data,error}=await sb.from("container_movements").select("id,container_number,container_company,container_type,has_damage,exit_has_damage,truck_registration,exit_truck_registration,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
     if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
     movements=data||[];
     const today=new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date());
@@ -399,7 +440,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const filtered=movements.filter(x=>[x.container_number,x.status||"",x.notes||""].some(v=>String(v).toLowerCase().includes(q)));
     filtered.forEach(x=>{
       const tr=document.createElement("tr");
-      const vals=[x.container_number,x.container_type?`${x.container_type} pieds`:"—",x.has_damage??"—",x.exit_has_damage??(x.exit_at?"Non renseigné":"—"),x.truck_registration||"—",x.exit_truck_registration|| (x.exit_at?"Non renseigné":"—"),formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc"];
+      const vals=[x.container_number,x.container_company||"—",x.container_type?`${x.container_type} pieds`:"—",x.has_damage??"—",x.exit_has_damage??(x.exit_at?"Non renseigné":"—"),x.truck_registration||"—",x.exit_truck_registration|| (x.exit_at?"Non renseigné":"—"),formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc"];
       vals.forEach(v=>tr.appendChild(cell(v)));
       const actionCell=document.createElement("td");
       if (readOnly) {
@@ -427,6 +468,9 @@ async function addContainerModule(parent, clients, readOnly=false) {
     if(number===null)return;
     const cleanNumber=number.trim().toUpperCase().replace(/\s+/g,"");
     if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(cleanNumber)){alert("Numéro invalide : format habituel 4 lettres + 7 caractères.");return;}
+    const company=ask("Compagnie du conteneur à l'entrée :",movement.container_company||"");
+    if(company===null)return;
+    if(!company.trim()){alert("Veuillez saisir la compagnie du conteneur.");return;}
     const type=ask("Type de conteneur (20, 40 ou 45 pieds) :",movement.container_type||"40");
     if(type===null)return;
     if(!["20","40","45"].includes(type.trim())){alert("Le type doit être 20, 40 ou 45.");return;}
@@ -446,7 +490,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     if(!window.confirm("Enregistrer les corrections de ce mouvement ?"))return;
     button.disabled=true;button.textContent="Enregistrement…";el("cMsg").textContent="Mise à jour du mouvement…";
     try{
-      const changes={container_number:cleanNumber,container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null};
+      const changes={container_number:cleanNumber,container_company:company.trim(),container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null};
       if(movement.exit_at){
         changes.exit_has_damage=damageOut.trim().toLowerCase()==="oui"?"Oui":"Non";
         changes.exit_truck_registration=truckOut.trim()||null;
@@ -490,13 +534,13 @@ async function addContainerModule(parent, clients, readOnly=false) {
   async function saveMovement(action){
     const number=el("cNumber").value.trim().toUpperCase().replace(/\s+/g,"");
     if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(number)){el("cMsg").textContent="Vérifiez le numéro : format habituel 4 lettres + 7 caractères.";return;}
-    if(action==="entry" && (!el("cType").value || !el("cDamage").value || !el("cTruck").value.trim())){el("cMsg").textContent="Renseignez le type, les dégâts et le matricule camion.";return;}
+    if(action==="entry" && (!el("cType").value || !el("cDamage").value || !el("cCompany").value.trim() || !el("cTruck").value.trim())){el("cMsg").textContent="Renseignez la compagnie du conteneur, le type, les dégâts et le matricule camion.";return;}
     el("cEntry").disabled=el("cExit").disabled=true;el("cMsg").textContent="Enregistrement…";
     try{
       const active=movements.find(x=>x.container_number===number&&!x.exit_at);
       if(action==="entry"){
         if(active){el("cMsg").textContent="Ce conteneur est déjà enregistré dans le parc. Utilisez la sortie si nécessaire.";return;}
-        const {error}=await sb.from("container_movements").insert({container_number:number,container_type:el("cType").value,has_damage:el("cDamage").value,truck_registration:el("cTruck").value.trim(),client_id:null,created_by:(await sb.auth.getUser()).data.user?.id});
+        const {error}=await sb.from("container_movements").insert({container_number:number,container_company:el("cCompany").value.trim(),container_type:el("cType").value,has_damage:el("cDamage").value,truck_registration:el("cTruck").value.trim(),client_id:null,created_by:(await sb.auth.getUser()).data.user?.id});
         if(error)throw error;
         el("cMsg").textContent=`Entrée enregistrée pour ${number}. Date et heure générées automatiquement.`;
       }else{
@@ -513,7 +557,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
         if(error)throw error;
         el("cMsg").textContent=`Sortie enregistrée pour ${number}. Dégâts à la sortie : ${normalizedExitDamage==="oui"?"Oui":"Non"}. Durée dans le parc : ${duration(active.entry_at,exitAt)}.`;
       }
-      el("cNumber").value="";if(action==="entry"){el("cTruck").value="";el("cDamage").value="Non";el("cType").value="40";}el("cNumber").focus();await refresh();
+      el("cNumber").value="";if(action==="entry"){el("cTruck").value="";el("cCompany").value="";el("cDamage").value="Non";el("cType").value="40";}el("cNumber").focus();await refresh();
     }catch(err){el("cMsg").textContent="Erreur d'enregistrement : "+(err.message||"vérifiez la table et les autorisations Supabase.");}
     finally{el("cEntry").disabled=el("cExit").disabled=false;}
   }
