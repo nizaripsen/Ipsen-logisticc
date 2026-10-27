@@ -293,17 +293,30 @@ async function addContainerModule(parent, clients, readOnly=false) {
     ${readOnly ? '<p>Mode consultation seule : les entrées, sorties et suppressions sont désactivées.</p>' : `<h3>Nouvelle opération rapide</h3>
     <label for="cNumber">Numéro du conteneur</label>
     <input id="cNumber" placeholder="Ex. MSKU1234567" autocomplete="off" autocapitalize="characters" autofocus>
+    <label for="cSize">Type de conteneur</label>
+    <select id="cSize" required>
+      <option value="">Choisir le type…</option>
+      <option value="20 pieds">20 pieds</option>
+      <option value="40 pieds">40 pieds</option>
+      <option value="45 pieds">45 pieds</option>
+    </select>
+    <label for="cDamage">Dégâts constatés ?</label>
+    <select id="cDamage"><option value="false">Non</option><option value="true">Oui</option></select>
+    <div id="cDamageDetailsWrap" class="hide">
+      <label for="cDamageDetails">Description des dégâts</label>
+      <input id="cDamageDetails" placeholder="Ex. porte abîmée, paroi enfoncée, colis cassés…">
+    </div>
     <label for="cNotes">Notes (facultatif)</label><input id="cNotes" placeholder="Chauffeur, camion, remarque…">
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
     <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
     <h3>Historique des mouvements</h3><input id="cSearch" placeholder="Rechercher un numéro">
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Conteneur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Notes</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Conteneur</th><th>Type</th><th>Dégâts</th><th>Description des dégâts</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Notes</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
     <p id="cCount"></p>`;
   parent.appendChild(section);
   const el = id => section.querySelector("#"+id);
   let movements = [];
   async function refresh() {
-    const {data,error}=await sb.from("container_movements").select("id,container_number,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
+    const {data,error}=await sb.from("container_movements").select("id,container_number,container_size,damage_reported,damage_notes,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
     if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
     movements=data||[];
     const today=new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date());
@@ -314,10 +327,10 @@ async function addContainerModule(parent, clients, readOnly=false) {
   }
   function renderRows(){
     const q=el("cSearch").value.trim().toLowerCase(), tbody=el("cRows"); tbody.replaceChildren();
-    const filtered=movements.filter(x=>[x.container_number,x.status||"",x.notes||""].some(v=>String(v).toLowerCase().includes(q)));
+    const filtered=movements.filter(x=>[x.container_number,x.container_size||"",x.damage_reported?"oui dégâts":"non",x.damage_notes||"",x.status||"",x.notes||""].some(v=>String(v).toLowerCase().includes(q)));
     filtered.forEach(x=>{
       const tr=document.createElement("tr");
-      const vals=[x.container_number,formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc",x.notes||"—"];
+      const vals=[x.container_number,x.container_size||"—",x.damage_reported?"Oui":"Non",x.damage_notes||"—",formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc",x.notes||"—"];
       vals.forEach(v=>tr.appendChild(cell(v)));
       const actionCell=document.createElement("td");
       if (readOnly) {
@@ -349,6 +362,12 @@ async function addContainerModule(parent, clients, readOnly=false) {
     }
   }
   el("cSearch").addEventListener("input",renderRows);
+  if (!readOnly) {
+    el("cDamage").addEventListener("change", () => {
+      el("cDamageDetailsWrap").classList.toggle("hide", el("cDamage").value !== "true");
+      if (el("cDamage").value !== "true") el("cDamageDetails").value = "";
+    });
+  }
   // Saisie manuelle prioritaire : pas de chargement ni d'attente OCR.
   if (!readOnly) {
     el("cNumber").addEventListener("input", () => {
@@ -364,12 +383,14 @@ async function addContainerModule(parent, clients, readOnly=false) {
   async function saveMovement(action){
     const number=el("cNumber").value.trim().toUpperCase().replace(/\s+/g,"");
     if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(number)){el("cMsg").textContent="Vérifiez le numéro : format habituel 4 lettres + 7 caractères.";return;}
+    if(action==="entry" && !el("cSize").value){el("cMsg").textContent="Choisissez le type de conteneur : 20, 40 ou 45 pieds.";el("cSize").focus();return;}
+    if(action==="entry" && el("cDamage").value==="true" && !el("cDamageDetails").value.trim()){el("cMsg").textContent="Décrivez les dégâts constatés avant de confirmer l'entrée.";el("cDamageDetails").focus();return;}
     el("cEntry").disabled=el("cExit").disabled=true;el("cMsg").textContent="Enregistrement…";
     try{
       const active=movements.find(x=>x.container_number===number&&!x.exit_at);
       if(action==="entry"){
         if(active){el("cMsg").textContent="Ce conteneur est déjà enregistré dans le parc. Utilisez la sortie si nécessaire.";return;}
-        const {error}=await sb.from("container_movements").insert({container_number:number,client_id:null,notes:el("cNotes").value.trim()||null,created_by:(await sb.auth.getUser()).data.user?.id});
+        const {error}=await sb.from("container_movements").insert({container_number:number,container_size:el("cSize").value,damage_reported:el("cDamage").value==="true",damage_notes:el("cDamage").value==="true"?(el("cDamageDetails").value.trim()||null):null,client_id:null,notes:el("cNotes").value.trim()||null,created_by:(await sb.auth.getUser()).data.user?.id});
         if(error)throw error;
         el("cMsg").textContent=`Entrée enregistrée pour ${number}. Date et heure générées automatiquement.`;
       }else{
@@ -378,7 +399,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
         if(error)throw error;
         el("cMsg").textContent=`Sortie enregistrée pour ${number}. Durée dans le parc : ${duration(active.entry_at,new Date().toISOString())}.`;
       }
-      el("cNumber").value="";el("cNotes").value="";el("cNumber").focus();await refresh();
+      el("cNumber").value="";el("cNotes").value="";el("cSize").value="";el("cDamage").value="false";el("cDamageDetails").value="";el("cDamageDetailsWrap").classList.add("hide");el("cNumber").focus();await refresh();
     }catch(err){el("cMsg").textContent="Erreur d'enregistrement : "+(err.message||"vérifiez la table et les autorisations Supabase.");}
     finally{el("cEntry").disabled=el("cExit").disabled=false;}
   }
