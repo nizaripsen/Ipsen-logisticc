@@ -208,9 +208,10 @@ async function loadPortal(user, profile) {
     addClientBtn.addEventListener("click",async()=>{
       const rawName=window.prompt("Nom du nouveau client :");
       if(rawName===null)return;
-      const name=rawName.trim().replace(/\\s+/g," ");
+      const name=rawName.trim().replace(/\s+/g," ");
       if(!name){alert("Veuillez saisir le nom du client.");return;}
-      const normalizeName=value=>String(value||"").normalize("NFD").replace(/[\\u0300-\\u036f]/g,"").trim().replace(/\\s+/g," ").toLowerCase();
+      // Comparaison exacte sans supprimer les accents : éviter les faux doublons.
+      const normalizeName=value=>String(value||"").trim().replace(/\s+/g," ").toLocaleLowerCase("fr");
       const existing=clients.find(c=>normalizeName(c.name)===normalizeName(name));
       if(existing){
         escaleClientSelect.value=existing.id;
