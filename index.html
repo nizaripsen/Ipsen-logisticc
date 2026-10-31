@@ -195,7 +195,7 @@ function showTable(panel, records, clientNames, admin, reloadData, user, staff=f
 function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
   panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button></nav>`:''}
+  ${admin?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button></nav>`:''}
   <div id="stockManagementView" class="${(admin||staff)?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
@@ -205,17 +205,81 @@ function makePanel(title, admin, staff=false) {
   main.appendChild(panel);addLogout(panel);return panel;
 }
 
+
+async function addOwnerAuditModule(parent) {
+  const section = document.createElement("section");
+  section.className = "card";
+  section.style.marginTop = "20px";
+  section.innerHTML = `<div class="toolbar"><div><h2>Historique des actions</h2><p>Journal des ajouts, modifications et suppressions</p></div><button id="refreshAudit" type="button" class="btn-light">Actualiser</button></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Table</th><th>Détails</th></tr></thead><tbody id="auditRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div><p id="auditMsg" role="status"></p>`;
+  parent.appendChild(section);
+  const rows = section.querySelector("#auditRows");
+  const msg = section.querySelector("#auditMsg");
+  async function refresh() {
+    rows.innerHTML = `<tr><td colspan="5">Chargement…</td></tr>`;
+    const { data, error } = await sb.from("audit_logs")
+      .select("created_at,actor_email,action,table_name,record_id,old_data,new_data")
+      .order("created_at", { ascending: false }).limit(200);
+    if (error) {
+      rows.innerHTML = `<tr><td colspan="5">Impossible de charger l’historique.</td></tr>`;
+      msg.textContent = error.message;
+      return;
+    }
+    rows.innerHTML = "";
+    if (!data?.length) {
+      rows.innerHTML = `<tr><td colspan="5">Aucune action enregistrée pour le moment.</td></tr>`;
+      return;
+    }
+    for (const item of data) {
+      const tr = document.createElement("tr");
+      const detail = document.createElement("td");
+      const before = item.old_data ? JSON.stringify(item.old_data) : "—";
+      const after = item.new_data ? JSON.stringify(item.new_data) : "—";
+      detail.textContent = `ID ${item.record_id || "—"} | Avant: ${before} | Après: ${after}`;
+      const values = [
+        new Date(item.created_at).toLocaleString("fr-FR"),
+        item.actor_email || "Utilisateur inconnu",
+        item.action,
+        item.table_name
+      ];
+      for (const value of values) {
+        const td = document.createElement("td");
+        td.textContent = value ?? "—";
+        tr.appendChild(td);
+      }
+      tr.appendChild(detail);
+      rows.appendChild(tr);
+    }
+    msg.textContent = `${data.length} action(s) affichée(s), maximum 200.`;
+  }
+  section.querySelector("#refreshAudit").addEventListener("click", refresh);
+  await refresh();
+}
+
 async function loadPortal(user, profile) {
   form.style.display = "none";
   document.querySelector("main > .card").querySelector("h3").style.display = "none";
   message.textContent = "";
   const isAdmin = profile.role === "admin";
   const isStaff = profile.role === "staff";
+  // Restriction spéciale à Tarek uniquement : Dalel et les autres staff gardent leurs accès habituels.
+  const isTarek = (user.email || "").toLowerCase() === "t.beldi@gmail.com";
+  const isAuditOwner = (user.email || "").toLowerCase() === "nizarglx@gmail.com";
   if (!isAdmin && !isStaff && !profile.client_id) {
     message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
     form.style.display = "block"; await sb.auth.signOut(); return;
   }
-  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — consultation" : "Espace Client"), isAdmin, isStaff);
+  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? (isTarek ? "Espace Tarek — consultation des conteneurs" : "Espace interne") : "Espace Client"), isAdmin, isStaff);
+
+  // Restriction spéciale à Tarek seulement : conteneurs en consultation, sans stock.
+  if (isTarek) {
+    const stockView = panel.querySelector("#stockManagementView");
+    if (stockView) stockView.classList.add("hide");
+    await addContainerModule(panel, [], true);
+    const containersView = panel.querySelector("#containerManagementView");
+    if (containersView) containersView.classList.remove("hide");
+    return;
+  }
+
   const stats = panel.querySelector("#stats");
   let clients = [], records = [];
   if (isAdmin || isStaff) {
@@ -409,6 +473,9 @@ async function loadPortal(user, profile) {
     stockBtn.addEventListener("click",()=>showSection("stock"));
     containersBtn.addEventListener("click",()=>showSection("containers"));
     // À l'ouverture, aucune donnée n'est affichée avant le choix de l'utilisateur.
+  }
+  if (isAdmin && isAuditOwner) {
+    await addOwnerAuditModule(panel);
   }
 }
 
