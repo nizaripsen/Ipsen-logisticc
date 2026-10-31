@@ -206,54 +206,6 @@ function makePanel(title, admin, staff=false) {
 }
 
 
-async function addOwnerAuditModule(parent) {
-  const section = document.createElement("section");
-  section.className = "card";
-  section.style.marginTop = "20px";
-  section.innerHTML = `<div class="toolbar"><div><h2>Historique des actions</h2><p>Journal des ajouts, modifications et suppressions</p></div><button id="refreshAudit" type="button" class="btn-light">Actualiser</button></div><div class="table-wrap"><table><thead><tr><th>Date</th><th>Utilisateur</th><th>Action</th><th>Table</th><th>Détails</th></tr></thead><tbody id="auditRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div><p id="auditMsg" role="status"></p>`;
-  parent.appendChild(section);
-  const rows = section.querySelector("#auditRows");
-  const msg = section.querySelector("#auditMsg");
-  async function refresh() {
-    rows.innerHTML = `<tr><td colspan="5">Chargement…</td></tr>`;
-    const { data, error } = await sb.from("audit_logs")
-      .select("created_at,actor_email,action,table_name,record_id,old_data,new_data")
-      .order("created_at", { ascending: false }).limit(200);
-    if (error) {
-      rows.innerHTML = `<tr><td colspan="5">Impossible de charger l’historique.</td></tr>`;
-      msg.textContent = error.message;
-      return;
-    }
-    rows.innerHTML = "";
-    if (!data?.length) {
-      rows.innerHTML = `<tr><td colspan="5">Aucune action enregistrée pour le moment.</td></tr>`;
-      return;
-    }
-    for (const item of data) {
-      const tr = document.createElement("tr");
-      const detail = document.createElement("td");
-      const before = item.old_data ? JSON.stringify(item.old_data) : "—";
-      const after = item.new_data ? JSON.stringify(item.new_data) : "—";
-      detail.textContent = `ID ${item.record_id || "—"} | Avant: ${before} | Après: ${after}`;
-      const values = [
-        new Date(item.created_at).toLocaleString("fr-FR"),
-        item.actor_email || "Utilisateur inconnu",
-        item.action,
-        item.table_name
-      ];
-      for (const value of values) {
-        const td = document.createElement("td");
-        td.textContent = value ?? "—";
-        tr.appendChild(td);
-      }
-      tr.appendChild(detail);
-      rows.appendChild(tr);
-    }
-    msg.textContent = `${data.length} action(s) affichée(s), maximum 200.`;
-  }
-  section.querySelector("#refreshAudit").addEventListener("click", refresh);
-  await refresh();
-}
 
 async function loadPortal(user, profile) {
   form.style.display = "none";
@@ -263,7 +215,6 @@ async function loadPortal(user, profile) {
   const isStaff = profile.role === "staff";
   // Restriction spéciale à Tarek uniquement : Dalel et les autres staff gardent leurs accès habituels.
   const isTarek = (user.email || "").toLowerCase() === "t.beldi@gmail.com";
-  const isAuditOwner = (user.email || "").toLowerCase() === "nizarglx@gmail.com";
   if (!isAdmin && !isStaff && !profile.client_id) {
     message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
     form.style.display = "block"; await sb.auth.signOut(); return;
@@ -463,9 +414,6 @@ async function loadPortal(user, profile) {
     containersBtn.addEventListener("click",()=>showSection("containers"));
     bonsBtn?.addEventListener("click",()=>showSection("bons"));
     // À l'ouverture, aucune donnée n'est affichée avant le choix de l'utilisateur.
-  }
-  if (isAdmin && isAuditOwner) {
-    await addOwnerAuditModule(panel);
   }
 }
 
