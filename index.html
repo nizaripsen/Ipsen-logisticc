@@ -214,6 +214,48 @@ async function addOwnerAuditModule(parent) {
   parent.appendChild(section);
   const rows = section.querySelector("#auditRows");
   const msg = section.querySelector("#auditMsg");
+  async function refreshReturnBons(){
+    const {data,error}=await sb.from("container_return_bons").select("id,container_movement_id,container_number,received_at,image_path").order("received_at",{ascending:false});
+    if(error){ if(el("cBonMsg")) el("cBonMsg").textContent="Pour activer les bons de restitution, exécutez le script SQL fourni avec ce fichier. Détail : "+error.message; return; }
+    returnBons=data||[];
+    renderReturnBons();
+  }
+  async function renderReturnBons(){
+    if(!el("cBonRows"))return;
+    const exited=movements.filter(x=>x.exit_at);
+    const receivedIds=new Set(returnBons.map(x=>x.container_movement_id));
+    const pending=exited.filter(x=>!receivedIds.has(x.id));
+    el("cBonPending").textContent=pending.length;
+    el("cBonReceived").textContent=exited.length-pending.length;
+    const tbody=el("cBonRows");tbody.replaceChildren();
+    for(const m of exited){
+      const bon=returnBons.find(x=>x.container_movement_id===m.id);
+      const tr=document.createElement("tr");
+      const vals=[m.container_number,formatDate(m.exit_at),bon?"Bon reçu":"En attente"];
+      vals.forEach((v,i)=>{const td=document.createElement("td");td.textContent=v||"—";if(i===2)td.style.color=bon?"#138a62":"#b45309";tr.appendChild(td);});
+      const photo=document.createElement("td");
+      if(bon?.image_path){const a=document.createElement("button");a.type="button";a.textContent="Voir la photo";a.className="btn-light";a.addEventListener("click",async()=>{const {data,error}=await sb.storage.from("container-return-bons").createSignedUrl(bon.image_path,300);if(error){el("cBonMsg").textContent=error.message;return;}window.open(data.signedUrl,"_blank","noopener");});photo.appendChild(a);}else photo.textContent="—";
+      tr.appendChild(photo);
+      const action=document.createElement("td");
+      if(!readOnly&&!bon){const btn=document.createElement("button");btn.type="button";btn.textContent="Ajouter photo du bon";btn.style.cssText="background:#138a62;color:white;border:0;border-radius:6px;padding:7px 10px;cursor:pointer";btn.addEventListener("click",()=>uploadReturnBon(m,btn));action.appendChild(btn);}else action.textContent=bon?"Enregistré":"Consultation seule";
+      tr.appendChild(action);tbody.appendChild(tr);
+    }
+    if(!exited.length){const tr=document.createElement("tr");const td=document.createElement("td");td.colSpan=5;td.textContent="Aucune sortie enregistrée.";tr.appendChild(td);tbody.appendChild(tr);}
+  }
+  async function uploadReturnBon(m,button){
+    const picker=document.createElement("input");picker.type="file";picker.accept="image/*,.pdf";picker.setAttribute("capture","environment");
+    picker.onchange=async()=>{const file=picker.files?.[0];if(!file)return;if(file.size>10*1024*1024){el("cBonMsg").textContent="Fichier trop volumineux (maximum 10 Mo).";return;}
+      button.disabled=true;el("cBonMsg").textContent="Envoi de la photo du bon…";
+      try{const user=(await sb.auth.getUser()).data.user;if(!user)throw new Error("Session utilisateur introuvable.");
+        const ext=(file.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"");const path=`${m.id}/${Date.now()}.${ext}`;
+        const up=await sb.storage.from("container-return-bons").upload(path,file,{upsert:false,contentType:file.type||undefined});if(up.error)throw up.error;
+        const ins=await sb.from("container_return_bons").insert({container_movement_id:m.id,container_number:m.container_number,image_path:path,received_at:new Date().toISOString(),created_by:user.id});
+        if(ins.error){await sb.storage.from("container-return-bons").remove([path]);throw ins.error;}
+        el("cBonMsg").textContent=`Bon de restitution enregistré pour ${m.container_number}.`;await refreshReturnBons();
+      }catch(err){el("cBonMsg").textContent="Impossible d’enregistrer le bon : "+(err.message||"vérifiez le SQL, le stockage et les droits RLS.");}
+      finally{button.disabled=false;}
+    };picker.click();
+  }
   async function refresh() {
     rows.innerHTML = `<tr><td colspan="5">Chargement…</td></tr>`;
     const { data, error } = await sb.from("audit_logs")
@@ -609,10 +651,20 @@ async function addContainerModule(parent, clients, readOnly=false) {
       <button id="cResetFilters" type="button" class="btn-light">Réinitialiser</button>
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
-    <p id="cCount"></p>`;
+    <p id="cCount"></p>
+    <hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
+    <h3>📄 Suivi des bons de restitution</h3>
+    <p>Chaque conteneur enregistré en sortie apparaît automatiquement « En attente ». Ajoutez la photo du bon lorsqu’il est reçu.</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0">
+      <div style="background:#fff5e8;padding:12px;border-radius:9px"><small>En attente</small><h2 id="cBonPending">—</h2></div>
+      <div style="background:#edf7f3;padding:12px;border-radius:9px"><small>Bons reçus</small><h2 id="cBonReceived">—</h2></div>
+    </div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Date de sortie</th><th>État du bon</th><th>Photo du bon</th><th>Action</th></tr></thead><tbody id="cBonRows"></tbody></table></div>
+    <p id="cBonMsg" role="status"></p>`;
   parent.appendChild(section);
   const el = id => section.querySelector("#"+id);
   let movements = [];
+  let returnBons = [];
   let containerQuickFilter="";
   let lastFilteredMovements = [];
   section.querySelectorAll("[data-container-filter]").forEach(card=>{
@@ -660,6 +712,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const {data,error}=await sb.from("container_movements").select("id,container_number,container_company,container_type,has_damage,exit_has_damage,truck_registration,exit_truck_registration,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
     if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
     movements=data||[];
+    await refreshReturnBons();
     const today=new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date());
     el("cInside").textContent=movements.filter(x=>!x.exit_at).length;
     el("cTodayIn").textContent=movements.filter(x=>x.entry_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.entry_at))===today).length;
