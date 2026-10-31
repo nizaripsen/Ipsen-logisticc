@@ -211,15 +211,16 @@ async function loadPortal(user, profile) {
   message.textContent = "";
   const isAdmin = profile.role === "admin";
   const isStaff = profile.role === "staff";
+  // Restriction spéciale à Tarek uniquement : Dalel et les autres staff gardent leurs accès habituels.
+  const isTarek = (user.email || "").toLowerCase() === "t.beldi@gmail.com";
   if (!isAdmin && !isStaff && !profile.client_id) {
     message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
     form.style.display = "block"; await sb.auth.signOut(); return;
   }
-  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — consultation des conteneurs" : "Espace Client"), isAdmin, isStaff);
+  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? (isTarek ? "Espace Tarek — consultation des conteneurs" : "Espace interne") : "Espace Client"), isAdmin, isStaff);
 
-  // Espace staff : accès strictement limité au module conteneurs.
-  // Ne charge aucune donnée clients ou stock_records dans cette session.
-  if (isStaff) {
+  // Restriction spéciale à Tarek seulement : conteneurs en consultation, sans stock.
+  if (isTarek) {
     const stockView = panel.querySelector("#stockManagementView");
     if (stockView) stockView.classList.add("hide");
     await addContainerModule(panel, [], true);
