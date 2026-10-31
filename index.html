@@ -195,7 +195,7 @@ function showTable(panel, records, clientNames, admin, reloadData, user, staff=f
 function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
   panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${admin?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button></nav>`:''}
+  ${admin?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button><button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button></nav>`:''}
   <div id="stockManagementView" class="${(admin||staff)?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
@@ -458,20 +458,20 @@ async function loadPortal(user, profile) {
       if(requestsSection) panel.querySelector("#stockManagementView")?.appendChild(requestsSection);
     }
     const stockView=panel.querySelector("#stockManagementView");
-    const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection");
+    const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection"), bonsBtn=panel.querySelector("#showReturnBonsSection");
     const containersView=panel.querySelector("#containerManagementView");
     const showSection=(which)=>{
-      const showStock=which==="stock";
+      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons";
       stockView?.classList.toggle("hide",!showStock);
       containersView?.classList.toggle("hide",showStock);
-      stockBtn.className="section-nav-button "+(showStock?"btn-green":"btn-light");
-      containersBtn.className="section-nav-button "+(showStock?"btn-light":"btn-green");
-      stockBtn.setAttribute("aria-pressed",String(showStock));
-      containersBtn.setAttribute("aria-pressed",String(!showStock));
-      if(showStock){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
+      containersView?.querySelector("#containerMainContent")?.classList.toggle("hide",!showContainers);
+      containersView?.querySelector("#returnBonsSection")?.classList.toggle("hide",!showBons);
+      [[stockBtn,showStock],[containersBtn,showContainers],[bonsBtn,showBons]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
+      if(!showContainers){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
     containersBtn.addEventListener("click",()=>showSection("containers"));
+    bonsBtn?.addEventListener("click",()=>showSection("bons"));
     // À l'ouverture, aucune donnée n'est affichée avant le choix de l'utilisateur.
   }
   if (isAdmin && isAuditOwner) {
@@ -575,6 +575,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
   section.classList.add("hide");
   section.innerHTML = `
     <h1>🚛 Gestion des conteneurs</h1>
+    <div id="containerMainContent">
     <p>Mode rapide : saisissez le numéro, puis confirmez directement l’entrée ou la sortie. Aucun client requis.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:16px 0">
       <div data-container-filter="inside" role="button" tabindex="0" style="background:#edf7f3;padding:14px;border-radius:10px;cursor:pointer"><small>Dans le parc</small><h2 id="cInside">—</h2></div>
@@ -610,15 +611,17 @@ async function addContainerModule(parent, clients, readOnly=false) {
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
     <p id="cCount"></p>
-    <hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
-    <h3>📄 Suivi des bons de restitution</h3>
+    </div>
+    <div id="returnBonsSection" class="hide">
+    <h1>📄 Suivi des bons de restitution</h1>
     <p>Chaque conteneur enregistré en sortie apparaît automatiquement « En attente ». Ajoutez la photo du bon lorsqu’il est reçu.</p>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin:12px 0">
       <div style="background:#fff5e8;padding:12px;border-radius:9px"><small>En attente</small><h2 id="cBonPending">—</h2></div>
       <div style="background:#edf7f3;padding:12px;border-radius:9px"><small>Bons reçus</small><h2 id="cBonReceived">—</h2></div>
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Date de sortie</th><th>État du bon</th><th>Photo du bon</th><th>Action</th></tr></thead><tbody id="cBonRows"></tbody></table></div>
-    <p id="cBonMsg" role="status"></p>`;
+    <p id="cBonMsg" role="status"></p>
+    </div>`;
   parent.appendChild(section);
   const el = id => section.querySelector("#"+id);
   let movements = [];
