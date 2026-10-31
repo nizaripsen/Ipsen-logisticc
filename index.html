@@ -597,13 +597,24 @@ async function addContainerModule(parent, clients, readOnly=false) {
     <input id="cTruck" placeholder="Ex. 123 تونس 4567" autocomplete="off" required>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
     <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
-    <h3>Historique des mouvements</h3><input id="cSearch" placeholder="Rechercher : numéro, compagnie, statut, matricule ou date…" aria-label="Recherche rapide dans tous les mouvements">
+    <h3>Historique des mouvements</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:12px 0">
+      <div><label for="cDateFrom">Date début</label><input id="cDateFrom" type="date"></div>
+      <div><label for="cDateTo">Date fin</label><input id="cDateTo" type="date"></div>
+      <div><label for="cStatusFilter">Type de mouvement</label><select id="cStatusFilter"><option value="all">Tous les mouvements</option><option value="entry">Entrées</option><option value="exit">Sorties</option><option value="inside">Dans le parc</option></select></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
+      <input id="cSearch" style="flex:1;min-width:220px" placeholder="Rechercher : numéro, compagnie, statut, matricule…" aria-label="Recherche rapide dans tous les mouvements">
+      <button id="cPrintFiltered" type="button" class="btn-light">Imprimer la liste</button>
+      <button id="cResetFilters" type="button" class="btn-light">Réinitialiser</button>
+    </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
     <p id="cCount"></p>`;
   parent.appendChild(section);
   const el = id => section.querySelector("#"+id);
   let movements = [];
   let containerQuickFilter="";
+  let lastFilteredMovements = [];
   section.querySelectorAll("[data-container-filter]").forEach(card=>{
     const activate=()=>{el("cSearch").value="";containerQuickFilter=containerQuickFilter===card.dataset.containerFilter?"":card.dataset.containerFilter;renderRows();};
     card.addEventListener("click",activate);
@@ -659,9 +670,18 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const normalizeSearch = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     const q=normalizeSearch(el("cSearch").value), tbody=el("cRows"); tbody.replaceChildren();
     const today=todayTunisKey();
+    const dateFrom=el("cDateFrom")?.value||"";
+    const dateTo=el("cDateTo")?.value||"";
+    const statusFilter=el("cStatusFilter")?.value||"all";
     const filtered=movements.filter(x=>{
       const matchesQuick=!containerQuickFilter||(containerQuickFilter==="inside"?!x.exit_at:containerQuickFilter==="todayIn"?tunisDateKey(x.entry_at)===today:containerQuickFilter==="todayOut"?tunisDateKey(x.exit_at)===today:false);
       if(!matchesQuick)return false;
+      if(statusFilter==="entry" && !x.entry_at)return false;
+      if(statusFilter==="exit" && !x.exit_at)return false;
+      if(statusFilter==="inside" && x.exit_at)return false;
+      const eventDate=statusFilter==="exit"?tunisDateKey(x.exit_at):tunisDateKey(x.entry_at);
+      if(dateFrom && (!eventDate || eventDate<dateFrom))return false;
+      if(dateTo && (!eventDate || eventDate>dateTo))return false;
       if(!q) return true;
       const values=[
         x.container_number, x.container_company, x.container_type ? `${x.container_type} pieds` : "",
@@ -675,6 +695,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
       ];
       return values.some(value=>normalizeSearch(value).includes(q));
     });
+    lastFilteredMovements=filtered;
     filtered.forEach(x=>{
       const tr=document.createElement("tr");
       const vals=[x.container_number,x.container_company||"—",x.container_type?`${x.container_type} pieds`:"—",x.has_damage??"—",x.exit_has_damage??(x.exit_at?"Non renseigné":"—"),x.truck_registration||"—",x.exit_truck_registration|| (x.exit_at?"Non renseigné":"—"),formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc"];
@@ -798,6 +819,20 @@ async function addContainerModule(parent, clients, readOnly=false) {
     }catch(err){el("cMsg").textContent="Erreur d'enregistrement : "+(err.message||"vérifiez la table et les autorisations Supabase.");}
     finally{el("cEntry").disabled=el("cExit").disabled=false;}
   }
+  ["cSearch","cDateFrom","cDateTo","cStatusFilter"].forEach(id=>el(id)?.addEventListener(id==="cSearch"?"input":"change",renderRows));
+  el("cResetFilters")?.addEventListener("click",()=>{
+    el("cSearch").value=""; el("cDateFrom").value=""; el("cDateTo").value="";
+    el("cStatusFilter").value="all"; containerQuickFilter=""; renderRows();
+  });
+  el("cPrintFiltered")?.addEventListener("click",()=>{
+    if(!lastFilteredMovements.length){alert("Aucun conteneur à imprimer pour ces filtres.");return;}
+    const esc=value=>String(value??"—").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const rows=lastFilteredMovements.map(x=>`<tr><td>${esc(x.container_number)}</td><td>${esc(x.container_company)}</td><td>${esc(x.container_type?x.container_type+" pieds":"—")}</td><td>${esc(formatDate(x.entry_at))}</td><td>${esc(formatDate(x.exit_at))}</td><td>${esc(duration(x.entry_at,x.exit_at))}</td><td>${esc(x.exit_at?"Sorti":"Dans le parc")}</td></tr>`).join("");
+    const w=window.open("","_blank","width=1100,height=750");
+    if(!w){alert("Autorisez les fenêtres pop-up pour imprimer.");return;}
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Liste des conteneurs - IPSEN</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#263746}h1{color:#17466b}p{color:#526579}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccd6df;padding:8px;text-align:left}th{background:#edf3f8}@media print{button{display:none}}</style></head><body><h1>IPSEN LOGISTICS — Liste des conteneurs</h1><p>Édité le ${new Date().toLocaleString("fr-FR")} — ${lastFilteredMovements.length} résultat(s)</p><table><thead><tr><th>N° conteneur</th><th>Compagnie</th><th>Type</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\\/script></body></html>`);
+    w.document.close();
+  });
   if (!readOnly) {
     el("cEntry").addEventListener("click",()=>saveMovement("entry"));
     el("cExit").addEventListener("click",()=>saveMovement("exit"));
