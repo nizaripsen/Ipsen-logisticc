@@ -476,17 +476,27 @@ function tunisDateKey(value) {
   return new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(date);
 }
 function todayTunisKey() {
-  return new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const parts = new Intl.DateTimeFormat("en-GB", {timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date());
+  const part = type => parts.find(item => item.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
 }
 function daysSinceEntry(value) {
   if (!value) return null;
-  const match = String(value).slice(0,10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  // Supabase DATE values are YYYY-MM-DD; also tolerate ISO timestamps.
+  const raw = String(value).trim();
+  let match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  // Also tolerate dates entered/imported as DD/MM/YYYY or DD-MM-YYYY.
+  if (!match) {
+    const alternate = raw.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})$/);
+    if (alternate) match = [alternate[0], alternate[3], alternate[2], alternate[1]];
+  }
   if (!match) return null;
-  const entry = Date.UTC(Number(match[1]), Number(match[2])-1, Number(match[3]));
-  const nowKey = todayTunisKey().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!nowKey) return null;
-  const today = Date.UTC(Number(nowKey[1]), Number(nowKey[2])-1, Number(nowKey[3]));
-  return Math.max(0, Math.floor((today-entry)/86400000));
+  const year = Number(match[1]), month = Number(match[2]), day = Number(match[3]);
+  const entry = Date.UTC(year, month - 1, day);
+  const [todayYear, todayMonth, todayDay] = todayTunisKey().split("-").map(Number);
+  const today = Date.UTC(todayYear, todayMonth - 1, todayDay);
+  if (![year,month,day,todayYear,todayMonth,todayDay].every(Number.isFinite) || !Number.isFinite(entry) || !Number.isFinite(today)) return null;
+  return Math.floor((today - entry) / 86400000);
 }
 function formatDate(value) {
   if (!value) return "—";
