@@ -278,7 +278,23 @@ async function loadPortal(user, profile) {
         if(data?.error) throw new Error(data.error);
         accountMsg.textContent=`Compte créé avec succès : ${data.email} (${role === "client" ? "Client" : "Staff"}).`;
         accountForm.reset();syncAccountRole();
-      } catch(err) { accountMsg.textContent="Échec : "+(err.message||"Erreur inconnue")+(err.context?.json?.error?" — "+err.context.json.error:""); }
+      } catch(err) {
+        let detail = "";
+        const response = err?.context;
+        if (response && typeof response.clone === "function") {
+          try {
+            const body = await response.clone().json();
+            detail = body?.error || body?.message || body?.msg || body?.details || JSON.stringify(body);
+          } catch (_) {
+            try { detail = await response.clone().text(); } catch (_) {}
+          }
+        } else if (err?.context?.json?.error) {
+          detail = err.context.json.error;
+        }
+        const status = response?.status ? ` (HTTP ${response.status})` : "";
+        accountMsg.textContent = "Échec" + status + " : " + (detail || err.message || "Erreur inconnue");
+        console.error("create-portal-account:", err, detail);
+      }
       finally { submit.disabled=false; }
     });
   }
