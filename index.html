@@ -449,6 +449,50 @@ async function loadPortal(user, profile) {
               }
             });
             actionCell.appendChild(saveButton);
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "btn-red";
+            deleteButton.textContent = "🗑 Supprimer";
+            deleteButton.addEventListener("click", async () => {
+              const confirmed = confirm(`Supprimer définitivement le compte ${account.email} ?\n\nCette action supprimera son accès au portail et ne peut pas être annulée. Les données de stock du client ne seront pas supprimées.`);
+              if (!confirmed) return;
+              const secondConfirm = prompt(`Pour confirmer, saisissez SUPPRIMER :`);
+              if (secondConfirm !== "SUPPRIMER") {
+                if (secondConfirm !== null) alert("Confirmation incorrecte. Le compte n'a pas été supprimé.");
+                return;
+              }
+              deleteButton.disabled = true;
+              saveButton.disabled = true;
+              passwordMsg.textContent = `Suppression du compte ${account.email}…`;
+              try {
+                const { data: { session: currentSession } } = await sb.auth.getSession();
+                if (!currentSession?.access_token) throw new Error("Session admin introuvable. Reconnectez-vous.");
+                const { data: result, error: deleteError } = await sb.functions.invoke("manage-portal-accounts", {
+                  body: { action: "delete_account", user_id: account.id },
+                  headers: { Authorization: `Bearer ${currentSession.access_token}` }
+                });
+                if (deleteError) {
+                  let detail = "";
+                  try {
+                    const response = deleteError.context;
+                    if (response && typeof response.clone === "function") {
+                      const body = await response.clone().json();
+                      detail = body?.error || body?.message || "";
+                    }
+                  } catch (_) {}
+                  throw new Error([deleteError.message, detail].filter(Boolean).join(" — "));
+                }
+                if (result?.error) throw new Error(result.error);
+                passwordMsg.textContent = `Compte ${account.email} supprimé. Les données de stock sont conservées.`;
+                await loadPortalAccounts();
+              } catch (err) {
+                passwordMsg.textContent = "Suppression impossible : " + (err.message || "Erreur inconnue");
+                deleteButton.disabled = false;
+                saveButton.disabled = false;
+              }
+            });
+            actionCell.appendChild(deleteButton);
             tr.appendChild(actionCell);
             passwordRows.appendChild(tr);
           });
