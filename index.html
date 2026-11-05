@@ -319,11 +319,24 @@ async function loadPortal(user, profile) {
         const {data:{session}}=await sb.auth.getSession();
         if(!session?.access_token) throw new Error("Session admin introuvable. Reconnectez-vous.");
         const {data,error}=await sb.functions.invoke("create-portal-account",{body:{role,name,email,password,client_id},headers:{Authorization:`Bearer ${session.access_token}`}});
-        if(error) throw new Error(error.message||"Erreur lors de la création.");
+        if(error) {
+          let details="";
+          try {
+            const response=error.context;
+            if(response && typeof response.clone==="function") {
+              const body=await response.clone().json();
+              details=body?.error||body?.message||body?.details||body?.msg||"";
+            }
+          } catch(_) {}
+          throw new Error([error.message,details].filter(Boolean).join(" — ")||"Erreur lors de la création.");
+        }
         if(data?.error) throw new Error(data.error);
         accountMsg.textContent=`Compte créé avec succès : ${data.email} (${role === "client" ? "Client" : "Staff"}).`;
         accountForm.reset();syncAccountRole();
-      } catch(err) { accountMsg.textContent="Échec : "+(err.message||"Erreur inconnue")+(err.context?.json?.error?" — "+err.context.json.error:""); }
+      } catch(err) {
+        accountMsg.textContent="Échec : "+(err.message||"Erreur inconnue");
+        console.error("create-portal-account error:",err);
+      }
       finally { submit.disabled=false; }
     });
   }
