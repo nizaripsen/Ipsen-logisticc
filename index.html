@@ -136,6 +136,16 @@ footer{padding:10px!important}
   main>section.card:first-child{padding:16px!important}
 }
 
+
+/* Compact stock tables: all columns remain visible without horizontal scrolling */
+.table-wrap{overflow-x:hidden!important;width:100%}
+.table-wrap table{width:100%!important;table-layout:fixed;border-collapse:collapse}
+.table-wrap th,.table-wrap td{padding:5px 4px!important;font-size:10px!important;line-height:1.2;white-space:normal!important;overflow-wrap:anywhere;word-break:break-word}
+.table-wrap th{font-size:9px!important}
+.table-wrap td button{font-size:9px!important;padding:5px 6px!important;margin:2px!important;white-space:normal}
+.table-wrap .selected-escale{background:#dbeafe!important;outline:2px solid #2563eb;outline-offset:-2px}
+.table-wrap tbody tr{cursor:pointer}
+@media(max-width:900px){.table-wrap th,.table-wrap td{font-size:8px!important;padding:3px 2px!important}.table-wrap th{font-size:7px!important}}
 </style>
  </head>
  <body>
@@ -240,6 +250,40 @@ function printDeliverySlip(record, clientName) {
   popup.document.close();
 }
 
+
+function printEscaleLabel(record, clientName, logoUrl="") {
+  const popup=window.open("","_blank","width=900,height=700");
+  if(!popup){alert("Autorisez les fenêtres pop-up pour imprimer l'étiquette ESC.");return;}
+  const esc=String(record.esc||"");
+  const qr="https://quickchart.io/qr?size=220&text="+encodeURIComponent(esc);
+  const safe=v=>String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Étiquette ESC ${safe(esc)}</title><style>
+  @page{size:A4;margin:15mm}body{font-family:Arial,sans-serif;color:#17324d;margin:0;padding:10mm}
+  .label{border:3px solid #173f5f;border-radius:12px;padding:22px;min-height:230mm;box-sizing:border-box}
+  header{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #173f5f;padding-bottom:18px}
+  .brand{font-size:26px;font-weight:900;letter-spacing:2px;color:#173f5f}
+  h1{text-align:center;font-size:25px;margin:26px 0;color:#173f5f}
+  .esc{font-size:42px;font-weight:900;text-align:center;border:2px solid #173f5f;padding:18px;margin:18px 0}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:28px}
+  .item{border:1px solid #9bb0c1;border-radius:8px;padding:16px;min-height:70px}
+  .k{font-size:14px;color:#526779;text-transform:uppercase;font-weight:bold}
+  .v{font-size:23px;font-weight:bold;margin-top:9px;overflow-wrap:anywhere}
+  .qr{text-align:center;margin-top:26px}.qr img{width:155px;height:155px}.qr p{font-weight:bold}
+  .print{display:block;margin:20px auto;padding:12px 25px;background:#173f5f;color:white;border:0;border-radius:6px;font-size:16px}
+  @media print{.print{display:none}body{padding:0}.label{min-height:265mm}}
+  </style></head><body><div class="label"><header><div class="brand">IPSEN LOGISTICS</div><div style="font-weight:bold">FICHE ESCALE</div></header>
+  <h1>IDENTIFICATION DE L'ESCALE</h1><div class="esc">ESC : ${safe(esc)}</div>
+  <div class="grid">
+  <div class="item"><div class="k">Client</div><div class="v">${safe(clientName)}</div></div>
+  <div class="item"><div class="k">Référence RUB</div><div class="v">${safe(record.rub)}</div></div>
+  <div class="item"><div class="k">Date d'entrée</div><div class="v">${safe(record.date_entree)}</div></div>
+  <div class="item"><div class="k">Nombre de colis</div><div class="v">${safe(record.colis)}</div></div>
+  <div class="item"><div class="k">Poids brut</div><div class="v">${safe(record.poids_brut)} kg</div></div>
+  </div><div class="qr"><img src="${qr}" alt="QR Code ESC"><p>Scanner pour identifier l'ESC : ${safe(esc)}</p></div></div>
+  <button class="print" onclick="window.print()">Imprimer la fiche A4</button></body></html>`);
+  popup.document.close();
+}
+
 function showTable(panel, records, clientNames, admin, reloadData, user, staff=false) {
   const rows=panel.querySelector("#stockRows"), search=panel.querySelector("#search"), statusFilter=panel.querySelector("#statusFilter"), count=panel.querySelector("#count");
   const clientFilter=panel.querySelector("#clientFilter"), dateFilter=panel.querySelector("#dateFilter"), sortFilter=panel.querySelector("#sortFilter");
@@ -260,6 +304,7 @@ function showTable(panel, records, clientNames, admin, reloadData, user, staff=f
     panel._filteredStockRecords=filtered.slice();
     rows.replaceChildren();
     filtered.forEach(r=>{const tr=document.createElement("tr");
+      tr.addEventListener("click",e=>{if(e.target.closest("button,a,input,select"))return;rows.querySelectorAll("tr.selected-escale").forEach(x=>x.classList.remove("selected-escale"));tr.classList.add("selected-escale");});
       const isDelivered=/livr/i.test(r.statut||"")||!!r.date_sortie;
       const days= isDelivered ? null : daysSinceEntry(r.date_entree);
       let daysCell="—";
@@ -417,7 +462,8 @@ async function loadPortal(user, profile) {
         const isDelivered=/livr/i.test(r.statut||"")||!!r.date_sortie;
         const days=isDelivered?"—":daysSinceEntry(r.date_entree);
         const deliveryDate=isDelivered?(r.date_sortie||"—"):"—";
-        return `<tr><td>${esc(clientNames[r.client_id]||"—")}</td><td>${esc(r.esc)}</td><td>${esc(r.rub)}</td><td>${esc(r.date_entree)}</td><td>${esc(days===null?"—":`${days} jour(s)`)}</td><td>${esc(r.colis)}</td><td>${esc(r.poids_brut)}</td><td>${esc(r.statut||"En cours")}</td><td>${esc(deliveryDate)}</td><td>${esc(r.num_dossier||"—")}</td></tr>`;
+        const dayStyle=days===null?"":"background:"+(days>60?"#fee2e2":days>=50?"#fef3c7":"#dcfce7")+";color:"+(days>60?"#991b1b":days>=50?"#92400e":"#166534")+";font-weight:700";
+        return `<tr><td>${esc(clientNames[r.client_id]||"—")}</td><td>${esc(r.esc)}</td><td>${esc(r.rub)}</td><td>${esc(r.date_entree)}</td><td style="${dayStyle}">${esc(days===null?"—":`${days} jour(s)`)}</td><td>${esc(r.colis)}</td><td>${esc(r.poids_brut)}</td><td>${esc(r.statut||"En cours")}</td><td>${esc(deliveryDate)}</td><td>${esc(r.num_dossier||"—")}</td></tr>`;
       }).join("");
       const popup=window.open("","_blank","width=1100,height=800");
       if(!popup){alert("Autorisez les fenêtres pop-up pour exporter le PDF.");return;}
@@ -717,7 +763,7 @@ async function loadPortal(user, profile) {
     const open=panel.querySelector("#newEscaleForm");
     panel.querySelector("#newEscaleBtn").addEventListener("click",()=>{open.classList.toggle("hide");panel.querySelector("#importExcelPanel").classList.add("hide");});
     panel.querySelector("#cancelEscale").addEventListener("click",()=>{panel.querySelector("#escaleForm").reset();open.classList.add("hide");});
-    panel.querySelector("#escaleForm").addEventListener("submit",async e=>{e.preventDefault();const msg=panel.querySelector("#eMsg"),btn=panel.querySelector("#saveEscale"),client_id=panel.querySelector("#eClient").value,esc=panel.querySelector("#eEsc").value.trim();if(!client_id||!esc){msg.textContent="Client et ESC obligatoires.";return;}btn.disabled=true;const {error}=await sb.from("stock_records").insert({client_id,esc,rub:panel.querySelector("#eRub").value.trim()||null,date_entree:panel.querySelector("#eDate").value,colis:Number(panel.querySelector("#eColis").value)||0,poids_brut:Number(panel.querySelector("#ePoids").value)||0,emplacement:panel.querySelector("#eEmplacement").value||null,statut:"En cours",date_sortie:null});if(error){msg.textContent="Erreur Supabase : "+error.message;btn.disabled=false;return;}msg.textContent="Escale créée.";panel.querySelector("#escaleForm").reset();open.classList.add("hide");btn.disabled=false;await redraw();});
+    panel.querySelector("#escaleForm").addEventListener("submit",async e=>{e.preventDefault();const msg=panel.querySelector("#eMsg"),btn=panel.querySelector("#saveEscale"),client_id=panel.querySelector("#eClient").value,esc=panel.querySelector("#eEsc").value.trim();if(!client_id||!esc){msg.textContent="Client et ESC obligatoires.";return;}btn.disabled=true;const labelRecord={client_id,esc,rub:panel.querySelector("#eRub").value.trim()||null,date_entree:panel.querySelector("#eDate").value,colis:Number(panel.querySelector("#eColis").value)||0,poids_brut:Number(panel.querySelector("#ePoids").value)||0};const {error}=await sb.from("stock_records").insert({...labelRecord,emplacement:panel.querySelector("#eEmplacement").value||null,statut:"En cours",date_sortie:null});if(error){msg.textContent="Erreur Supabase : "+error.message;btn.disabled=false;return;}printEscaleLabel(labelRecord,panel.querySelector("#eClient").selectedOptions[0]?.textContent||"Client");msg.textContent="Escale créée.";panel.querySelector("#escaleForm").reset();open.classList.add("hide");btn.disabled=false;await redraw();});
 
     const importPanel=panel.querySelector("#importExcelPanel"), importBtn=panel.querySelector("#importExcelBtn"), fileInput=panel.querySelector("#importExcelFile"), previewBtn=panel.querySelector("#previewExcelBtn"), runBtn=panel.querySelector("#runExcelImportBtn"), importMsg=panel.querySelector("#importExcelMsg"), importRows=panel.querySelector("#importExcelRows");
     let preparedRows=[];
@@ -918,6 +964,7 @@ async function addInteriorStockModule(parent, profile, isAdmin, isStaff) {
     rows.replaceChildren();
     filtered.forEach(r => {
       const tr = document.createElement("tr");
+      tr.addEventListener("click", event => { if(event.target.closest("button,a,input,select")) return; rows.querySelectorAll("tr.selected-escale").forEach(x=>x.classList.remove("selected-escale")); tr.classList.add("selected-escale"); });
       const delivered = /livr/i.test(r.statut || "") || !!r.date_sortie;
       const days = delivered ? "—" : daysSinceEntry(r.date_entree);
       const vals = [
@@ -1030,12 +1077,12 @@ async function addInteriorStockModule(parent, profile, isAdmin, isStaff) {
       const esc = el("iEsc").value.trim();
       if (!client_id || !esc) { el("interiorFormMsg").textContent = "Client intérieur et ESC obligatoires."; return; }
       button.disabled = true;
-      const {error} = await sb.from("interior_stock_records").insert({
-        client_id, esc, rub: el("iRub").value.trim() || null,
+      const labelRecord = {client_id, esc, rub: el("iRub").value.trim() || null,
         date_entree: el("iDate").value || null,
         colis: Number(el("iColis").value) || 0,
-        poids_brut: Number(el("iPoids").value) || 0,
-        emplacement: el("iEmplacement").value.trim() || null,
+        poids_brut: Number(el("iPoids").value) || 0};
+      const {error} = await sb.from("interior_stock_records").insert({
+        ...labelRecord, emplacement: el("iEmplacement").value.trim() || null,
         statut: "En cours", date_sortie: null
       });
       if (error) {
@@ -1043,6 +1090,7 @@ async function addInteriorStockModule(parent, profile, isAdmin, isStaff) {
         button.disabled = false;
         return;
       }
+      printEscaleLabel(labelRecord, clientNames[client_id] || clientSelect.selectedOptions[0]?.textContent || "Client intérieur");
       el("interiorFormMsg").textContent = "Escale intérieure créée.";
       el("interiorForm").reset();
       el("interiorEscaleForm").classList.add("hide");
