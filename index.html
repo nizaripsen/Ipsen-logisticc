@@ -502,7 +502,7 @@ async function loadPortal(user, profile) {
     message.textContent = "Votre compte n'est pas associé à un client. Contactez IPSEN Logistics.";
     form.style.display = "block"; await sb.auth.signOut(); return;
   }
-  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — consultation seule" : "Espace Client"), isAdmin, isStaff);
+  const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — ajout d’escales" : "Espace Client"), isAdmin, isStaff);
 
   const stats = panel.querySelector("#stats");
   let clients = [], records = [];
@@ -525,7 +525,7 @@ async function loadPortal(user, profile) {
     panel.querySelector("p").textContent = `Bienvenue ${name} — consultation de votre stock uniquement.`;
   }
   if (isStaff) {
-    panel.querySelector("p").textContent = "Accès interne IPSEN — consultation et suivi uniquement, sans modification du stock.";
+    panel.querySelector("p").textContent = "Accès interne IPSEN — ajout de nouvelles escales extérieur et intérieur. Modification et suppression réservées à l’Admin.";
   }
   const clientNames = Object.fromEntries(clients.map(c => [c.id, c.name]));
   const exportPdfBtn=panel.querySelector("#exportEscalesPdf");
@@ -900,6 +900,24 @@ async function loadPortal(user, profile) {
       renderImportPreview();importMsg.textContent=`Import terminé : ${added} ajoutée(s), ${failed} erreur(s).${failedRows.length?" Lignes en erreur : "+failedRows.join(", "):""}`;previewBtn.disabled=false;await redraw();
     });
   }
+
+  if(isStaff && !isAdmin){
+    const open=panel.querySelector("#newEscaleForm");
+    panel.querySelector("#newEscaleBtn").addEventListener("click",()=>open.classList.toggle("hide"));
+    panel.querySelector("#cancelEscale").addEventListener("click",()=>{panel.querySelector("#escaleForm").reset();open.classList.add("hide");});
+    panel.querySelector("#escaleForm").addEventListener("submit",async e=>{
+      e.preventDefault();
+      const msg=panel.querySelector("#eMsg"),btn=panel.querySelector("#saveEscale");
+      const client_id=panel.querySelector("#eClient").value,esc=panel.querySelector("#eEsc").value.trim();
+      if(!client_id||!esc){msg.textContent="Client et ESC obligatoires.";return;}
+      btn.disabled=true;
+      const labelRecord={client_id,esc,rub:panel.querySelector("#eRub").value.trim()||null,date_entree:panel.querySelector("#eDate").value,colis:Number(panel.querySelector("#eColis").value)||0,poids_brut:Number(panel.querySelector("#ePoids").value)||0};
+      const {error}=await sb.from("stock_records").insert({...labelRecord,emplacement:panel.querySelector("#eEmplacement").value||null,statut:"En cours",date_sortie:null});
+      if(error){msg.textContent="Erreur Supabase : "+error.message;btn.disabled=false;return;}
+      printEscaleLabel(labelRecord,panel.querySelector("#eClient").selectedOptions[0]?.textContent||"Client");
+      msg.textContent="Escale créée.";panel.querySelector("#escaleForm").reset();open.classList.add("hide");btn.disabled=false;await redraw();
+    });
+  }
   await redraw();
   await addInteriorStockModule(panel, profile, isAdmin, isStaff);
   if (isAdmin || isStaff) {
@@ -944,9 +962,9 @@ async function addInteriorStockModule(parent, profile, isAdmin, isStaff) {
   section.innerHTML = `
     <div class="toolbar">
       <div><h1>🏬 État de stock intérieur</h1><p>Gestion indépendante du stock intérieur IPSEN.</p></div>
-      ${isAdmin ? '<div class="toolbar-actions"><button id="addInteriorClient" type="button" class="btn-light">＋ Ajouter un client intérieur</button><button id="toggleInteriorEscale" type="button" class="btn-green">＋ Nouvelle escale intérieure</button></div>' : ''}
+      ${(isAdmin||isStaff) ? `<div class="toolbar-actions">${isAdmin ? '<button id="addInteriorClient" type="button" class="btn-light">＋ Ajouter un client intérieur</button>' : ''}<button id="toggleInteriorEscale" type="button" class="btn-green">＋ Nouvelle escale intérieure</button></div>` : ''}
     </div>
-    ${isStaff ? '<p>Accès Staff : consultation seule.</p>' : ''}
+    ${isStaff ? '<p>Accès Staff : ajout de nouvelles escales autorisé ; modification et suppression non autorisées.</p>' : ''}
     <section id="interiorEscaleForm" class="hide" style="background:#f8fbff;border:1px solid #dbeafe;padding:18px;border-radius:14px;margin:18px 0">
       <h3>＋ Nouvelle escale intérieure</h3>
       <form id="interiorForm">
@@ -1140,7 +1158,9 @@ async function addInteriorStockModule(parent, profile, isAdmin, isStaff) {
       clientSelect.value = data.id;
       render();
     });
+  }
 
+  if (isAdmin || isStaff) {
     el("toggleInteriorEscale").addEventListener("click", () => {
       el("interiorEscaleForm").classList.toggle("hide");
     });
