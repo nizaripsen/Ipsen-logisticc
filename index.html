@@ -1316,39 +1316,74 @@ async function addExitRequestsModule(parent, clientNames) {
   const section=document.createElement("section");
   section.className="card hide";
   section.style.marginTop="20px";
-  section.innerHTML=`<div class="toolbar"><div><h1>🔔 Demandes de sortie des clients</h1><p>Demandes envoyées depuis l’espace client.</p></div><button type="button" id="refreshRequests" class="btn-light">Actualiser</button></div>
-    <div class="table-wrap"><table><thead><tr><th>Client</th><th>ESC</th><th>Demandée le</th><th>Statut</th><th>Action</th></tr></thead><tbody id="requestRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div><p id="requestMsg" role="status"></p>`;
+  section.innerHTML=`<div class="toolbar"><div><h1>🔔 Demandes de sortie des clients</h1><p>Les demandes restent actives pendant 7 jours à compter de leur date de création. Ensuite, elles passent automatiquement dans l'historique sans être supprimées.</p></div><button type="button" id="refreshRequests" class="btn-light">Actualiser</button></div>
+    <h3>📥 Liste des demandes actives (7 derniers jours)</h3>
+    <div class="table-wrap"><table><thead><tr><th>Client</th><th>ESC</th><th>Demandée le</th><th>Statut</th><th>Action</th></tr></thead><tbody id="requestRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div>
+    <p id="requestMsg" role="status"></p>
+    <details id="requestHistory" style="margin-top:22px">
+      <summary style="cursor:pointer;font-weight:800;color:#07518f;padding:12px;background:#edf6ff;border-radius:10px">📚 Historique des demandes archivées automatiquement</summary>
+      <p style="color:#64748b">Demandes de plus de 7 jours. Elles restent consultables, mais ne peuvent plus être acceptées ou refusées depuis la liste active.</p>
+      <div class="table-wrap"><table><thead><tr><th>Client</th><th>ESC</th><th>Demandée le</th><th>Statut</th><th>Archivage</th></tr></thead><tbody id="requestHistoryRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div>
+    </details>`;
   parent.appendChild(section);
-  const rows=section.querySelector("#requestRows"), msg=section.querySelector("#requestMsg");
+  const rows=section.querySelector("#requestRows"), historyRows=section.querySelector("#requestHistoryRows"), msg=section.querySelector("#requestMsg");
+  const statusLabels={pending:"En attente",approved:"Acceptée",rejected:"Refusée"};
+  function requestDate(item){
+    return item.created_at?new Date(item.created_at).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short",timeZone:"Africa/Tunis"}):"Date inconnue";
+  }
   async function refreshRequests(){
     rows.replaceChildren();
-    const {data,error}=await sb.from("exit_requests").select("id,client_id,stock_esc,status,created_at").order("created_at",{ascending:false}).limit(200);
+    historyRows.replaceChildren();
+    const {data,error}=await sb.from("exit_requests").select("id,client_id,stock_esc,status,created_at").order("created_at",{ascending:false}).limit(1000);
     const badge=parent.querySelector("#exitRequestsBadge");
-    if(error){if(badge){badge.textContent="!";badge.style.display="block";}rows.innerHTML='<tr><td colspan="5">Impossible de charger les demandes. Vérifiez que la table exit_requests existe et que les politiques RLS autorisent l’administrateur à lire les demandes.</td></tr>';msg.textContent="";return;}
-    const pendingCount=(data||[]).filter(item=>item.status==="pending").length;
-    if(badge){badge.textContent=pendingCount>99?"99+":String(pendingCount);badge.style.display=pendingCount>0?"block":"none";}
-    if(!data?.length){rows.innerHTML='<tr><td colspan="5">Aucune demande de sortie pour le moment.</td></tr>';msg.textContent="";return;}
-    data.forEach(item=>{
-      const tr=document.createElement("tr");
-      const date=item.created_at?new Date(item.created_at).toLocaleString("fr-FR",{dateStyle:"short",timeStyle:"short",timeZone:"Africa/Tunis"}):"—";
-      const statusLabels={pending:"En attente",approved:"Acceptée",rejected:"Refusée"};
-      [clientNames[item.client_id]||"Client",item.stock_esc||"—",date,statusLabels[item.status]||item.status||"Nouvelle"].forEach(v=>tr.appendChild(cell(v)));
-      const actionTd=document.createElement("td");
-      if(item.status==="pending"){
-        const approve=document.createElement("button");
-        approve.type="button"; approve.className="btn-green"; approve.textContent="✓ Accepter";
-        approve.addEventListener("click",()=>updateRequest(item,"approved",approve));
-        const reject=document.createElement("button");
-        reject.type="button"; reject.className="btn-red"; reject.textContent="✕ Refuser";
-        reject.addEventListener("click",()=>updateRequest(item,"rejected",reject));
-        actionTd.append(approve,reject);
-      } else {
-        actionTd.textContent="—";
-      }
-      tr.appendChild(actionTd);
-      rows.appendChild(tr);
+    if(error){
+      if(badge){badge.textContent="!";badge.style.display="block";}
+      rows.innerHTML='<tr><td colspan="5">Impossible de charger les demandes. Vérifiez que la table exit_requests existe et que les politiques RLS autorisent l’administrateur à lire les demandes.</td></tr>';
+      historyRows.innerHTML='<tr><td colspan="5">Historique indisponible.</td></tr>';
+      msg.textContent="";
+      return;
+    }
+    const cutoff=Date.now()-(7*24*60*60*1000);
+    const active=[], archived=[];
+    (data||[]).forEach(item=>{
+      const created=item.created_at?Date.parse(item.created_at):NaN;
+      if(Number.isFinite(created)&&created>=cutoff) active.push(item);
+      else archived.push(item);
     });
-    msg.textContent=`${data.length} demande(s) affichée(s).`;
+    const pendingCount=active.filter(item=>item.status==="pending").length;
+    if(badge){badge.textContent=pendingCount>99?"99+":String(pendingCount);badge.style.display=pendingCount>0?"block":"none";}
+    if(!active.length){
+      rows.innerHTML='<tr><td colspan="5">Aucune demande active pendant les 7 derniers jours.</td></tr>';
+    } else {
+      active.forEach(item=>{
+        const tr=document.createElement("tr");
+        [clientNames[item.client_id]||"Client",item.stock_esc||"—",requestDate(item),statusLabels[item.status]||item.status||"Nouvelle"].forEach(v=>tr.appendChild(cell(v)));
+        const actionTd=document.createElement("td");
+        if(item.status==="pending"){
+          const approve=document.createElement("button");
+          approve.type="button"; approve.className="btn-green"; approve.textContent="✓ Accepter";
+          approve.addEventListener("click",()=>updateRequest(item,"approved",approve));
+          const reject=document.createElement("button");
+          reject.type="button"; reject.className="btn-red"; reject.textContent="✕ Refuser";
+          reject.addEventListener("click",()=>updateRequest(item,"rejected",reject));
+          actionTd.append(approve,reject);
+        } else {
+          actionTd.textContent="—";
+        }
+        tr.appendChild(actionTd);
+        rows.appendChild(tr);
+      });
+    }
+    if(!archived.length){
+      historyRows.innerHTML='<tr><td colspan="5">Aucune demande archivée pour le moment.</td></tr>';
+    } else {
+      archived.forEach(item=>{
+        const tr=document.createElement("tr");
+        [clientNames[item.client_id]||"Client",item.stock_esc||"—",requestDate(item),statusLabels[item.status]||item.status||"Nouvelle","Archivée (> 7 jours)"].forEach(v=>tr.appendChild(cell(v)));
+        historyRows.appendChild(tr);
+      });
+    }
+    msg.textContent=`${active.length} demande(s) active(s), dont ${pendingCount} en attente. ${archived.length} demande(s) dans l'historique.`;
   }
   async function updateRequest(item,newStatus,button){
     const actionText=newStatus==="approved"?"accepter":"refuser";
