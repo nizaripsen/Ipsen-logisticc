@@ -492,7 +492,7 @@ function wrapEscaleActions(actionCell, menuLabel = "⚙ Actions") {
 function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
   panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button><button id="manageAccountsBtn" type="button" class="btn-amber">👤 Créer un compte</button><button id="managePasswordsBtn" type="button" class="btn-light">🔑 Gérer les mots de passe</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button><button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button></nav>`:''}
+  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button><button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
   <div id="stockManagementView" class="${admin?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
@@ -918,30 +918,33 @@ async function loadPortal(user, profile) {
   }
   await redraw();
   await addInteriorStockModule(panel, profile, isAdmin, isStaff);
+  if (isAdmin || isStaff) await addInventoryReminderModule(panel, clientNames);
   if (isAdmin || isStaff) {
     await addContainerModule(panel, clients, isStaff);
     if (isAdmin) {
       await addExitRequestsModule(panel, clientNames);
-      const requestsSection=panel.querySelector("#refreshRequests")?.closest("section");
-      if(requestsSection) panel.querySelector("#stockManagementView")?.appendChild(requestsSection);
     }
     const stockView=panel.querySelector("#stockManagementView");
     const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection"), bonsBtn=panel.querySelector("#showReturnBonsSection");
     const containersView=panel.querySelector("#containerManagementView");
     const showSection=(which)=>{
-      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior";
+      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders";
       stockView?.classList.toggle("hide",!showStock);
       panel.querySelector("#interiorStockManagementView")?.classList.toggle("hide",!showInterior);
-      containersView?.classList.toggle("hide",showStock||showInterior);
+      containersView?.classList.toggle("hide",!(showContainers||showBons));
       containersView?.querySelector("#containerMainContent")?.classList.toggle("hide",!showContainers);
       containersView?.querySelector("#returnBonsSection")?.classList.toggle("hide",!showBons);
-      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
+      panel.querySelector("#refreshRequests")?.closest("section")?.classList.toggle("hide",!showRequests);
+      panel.querySelector("#inventoryReminderSection")?.classList.toggle("hide",!showInventoryReminders);
+      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
       if(!showContainers){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
     panel.querySelector("#showInteriorStockSection")?.addEventListener("click",()=>showSection("interior"));
     containersBtn.addEventListener("click",()=>showSection("containers"));
     bonsBtn?.addEventListener("click",()=>showSection("bons"));
+    panel.querySelector("#showExitRequestsSection")?.addEventListener("click",()=>showSection("requests"));
+    panel.querySelector("#showInventoryReminderSection")?.addEventListener("click",()=>showSection("inventoryReminders"));
     // À l'ouverture, aucune donnée n'est affichée avant le choix de l'utilisateur.
   }
 }
@@ -1264,9 +1267,54 @@ async function addInteriorStockModule(parent, profile, isAdmin, isStaff) {
   await loadInteriorRecords();
 }
 
+async function addInventoryReminderModule(parent, clientNames) {
+  const section=document.createElement("section");
+  section.id="inventoryReminderSection"; section.className="card hide"; section.style.marginTop="20px";
+  section.innerHTML=`<div class="toolbar"><div><h1>📦 Rappels d'inventaire</h1><p>Escales non livrées à inventorier pour la première fois ou dont le dernier inventaire date de 5 jours ou plus.</p></div><button type="button" id="refreshInventoryReminders" class="btn-light">↻ Actualiser</button></div><div id="inventoryReminderSummary" style="margin:12px 0;font-weight:700"></div><div class="table-wrap"><table><thead><tr><th>Type de stock</th><th>Client</th><th>ESC</th><th>Date entrée</th><th>Dernier inventaire</th><th>Jours depuis inventaire</th><th>Action</th></tr></thead><tbody id="inventoryReminderRows"><tr><td colspan="7">Chargement…</td></tr></tbody></table></div>`;
+  parent.appendChild(section);
+  const rows=section.querySelector("#inventoryReminderRows"),summary=section.querySelector("#inventoryReminderSummary"),badge=parent.querySelector("#inventoryReminderBadge");
+  async function refresh(){
+    rows.replaceChildren();
+    const [outside,inside]=await Promise.all([
+      sb.from("stock_records").select("id,client_id,esc,date_entree,statut,date_sortie,date_inventaire"),
+      sb.from("interior_stock_records").select("id,client_id,esc,date_entree,statut,date_sortie,date_inventaire")
+    ]);
+    const error=outside.error||inside.error;
+    if(error){rows.innerHTML=`<tr><td colspan="7">Impossible de charger les rappels : ${String(error.message)}</td></tr>`;summary.textContent="Vérifiez les autorisations de lecture Supabase.";if(badge){badge.textContent="!";badge.style.display="block";}return;}
+    const overdue=[];
+    for(const [type,list] of [["Extérieur",outside.data||[]],["Intérieur",inside.data||[]]]){
+      for(const r of list){
+        const delivered=/livr/i.test(r.statut||"")||!!r.date_sortie;
+        const days=r.date_inventaire ? daysSinceEntry(r.date_inventaire) : null;
+        // Première vérification : à faire immédiatement. Ensuite, rappel tous les 5 jours
+        // à partir de la date du dernier inventaire enregistré.
+        if(!delivered&&(!r.date_inventaire||(days!==null&&days>=5)))overdue.push({...r,_type:type,_days:days,_initial:!r.date_inventaire});
+      }
+    }
+    overdue.sort((a,b)=>(a._initial?-1:0)-(b._initial?-1:0) || (b._days||0)-(a._days||0));
+    if(badge){badge.textContent=overdue.length>99?"99+":String(overdue.length);badge.style.display=overdue.length?"block":"none";}
+    summary.textContent=overdue.length?`${overdue.length} escale(s) à inventorier : première vérification ou 5 jours depuis le dernier inventaire.`:"Aucun inventaire à faire pour le moment. 👍";
+    if(!overdue.length){rows.innerHTML='<tr><td colspan="7">Aucun inventaire à faire pour le moment.</td></tr>';return;}
+    overdue.forEach(r=>{
+      const tr=document.createElement("tr");
+      [r._type,clientNames[r.client_id]||"Client",r.esc||"—",r.date_entree||"—",r.date_inventaire||"Jamais inventoriée",r._initial?"Inventaire initial à faire":`${r._days} jours`].forEach(v=>tr.appendChild(cell(v)));
+      const td=document.createElement("td"),btn=document.createElement("button");btn.type="button";btn.className="btn-amber";btn.textContent="Ouvrir le stock";
+      btn.addEventListener("click",()=>{
+        const target=r._type==="Extérieur"?"showStockSection":"showInteriorStockSection";
+        parent.querySelector("#"+target)?.click();
+        const search=parent.querySelector(r._type==="Extérieur"?"#search":"#interiorSearch");
+        if(search){search.value=String(r.esc||"");search.dispatchEvent(new Event("input",{bubbles:true}));}
+      });
+      td.appendChild(btn);tr.appendChild(td);rows.appendChild(tr);
+    });
+  }
+  section.querySelector("#refreshInventoryReminders").addEventListener("click",refresh);
+  await refresh();
+}
+
 async function addExitRequestsModule(parent, clientNames) {
   const section=document.createElement("section");
-  section.className="card";
+  section.className="card hide";
   section.style.marginTop="20px";
   section.innerHTML=`<div class="toolbar"><div><h1>🔔 Demandes de sortie des clients</h1><p>Demandes envoyées depuis l’espace client.</p></div><button type="button" id="refreshRequests" class="btn-light">Actualiser</button></div>
     <div class="table-wrap"><table><thead><tr><th>Client</th><th>ESC</th><th>Demandée le</th><th>Statut</th><th>Action</th></tr></thead><tbody id="requestRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div><p id="requestMsg" role="status"></p>`;
@@ -1275,7 +1323,10 @@ async function addExitRequestsModule(parent, clientNames) {
   async function refreshRequests(){
     rows.replaceChildren();
     const {data,error}=await sb.from("exit_requests").select("id,client_id,stock_esc,status,created_at").order("created_at",{ascending:false}).limit(200);
-    if(error){rows.innerHTML='<tr><td colspan="5">Impossible de charger les demandes. Vérifiez que la table exit_requests existe et que les politiques RLS autorisent l’administrateur à lire les demandes.</td></tr>';msg.textContent="";return;}
+    const badge=parent.querySelector("#exitRequestsBadge");
+    if(error){if(badge){badge.textContent="!";badge.style.display="block";}rows.innerHTML='<tr><td colspan="5">Impossible de charger les demandes. Vérifiez que la table exit_requests existe et que les politiques RLS autorisent l’administrateur à lire les demandes.</td></tr>';msg.textContent="";return;}
+    const pendingCount=(data||[]).filter(item=>item.status==="pending").length;
+    if(badge){badge.textContent=pendingCount>99?"99+":String(pendingCount);badge.style.display=pendingCount>0?"block":"none";}
     if(!data?.length){rows.innerHTML='<tr><td colspan="5">Aucune demande de sortie pour le moment.</td></tr>';msg.textContent="";return;}
     data.forEach(item=>{
       const tr=document.createElement("tr");
