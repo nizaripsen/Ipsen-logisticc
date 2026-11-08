@@ -1484,9 +1484,11 @@ async function addContainerModule(parent, clients, readOnly=false) {
       <div style="display:flex;flex-wrap:wrap;gap:8px"><button id="startTransaliaIntervention" type="button" class="btn-green">＋ Démarrer une intervention</button><button id="printTransaliaBon" type="button" class="btn-light" disabled>📄 Générer le bon</button><button id="closeTransaliaIntervention" type="button" class="btn-amber" disabled>Clôturer</button></div>
     </div>
     <div id="transaliaArchiveBox" style="background:#f8fafc;border:1px solid #dbe5ef;border-radius:12px;padding:14px;margin:12px 0">
-      <h3 style="margin:0 0 8px">📚 Archive des bons TRANSALIA</h3>
-      <p style="margin:0 0 10px;color:#64748b">Retrouvez les interventions précédentes et rééditez leur bon PDF.</p>
-      <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Intervention</th><th>Date</th><th>Conteneurs</th><th>Bon</th></tr></thead><tbody id="transaliaArchiveRows"><tr><td colspan="4">Chargement de l'archive…</td></tr></tbody></table></div>
+      <button id="toggleTransaliaArchive" type="button" aria-expanded="false" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e4effb;color:#123f68;border:0;border-radius:10px;padding:13px 16px;font-size:16px;font-weight:800;text-align:left;cursor:pointer">📚 Archive des bons TRANSALIA <span id="transaliaArchiveChevron">▼</span></button>
+      <div id="transaliaArchiveContent" hidden style="padding-top:12px">
+        <p style="margin:0 0 10px;color:#64748b">Les bons restent disponibles pendant 30 jours. L’archive se renouvelle automatiquement ensuite.</p>
+        <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Intervention</th><th>Date</th><th>Conteneurs</th><th>Bon</th></tr></thead><tbody id="transaliaArchiveRows"><tr><td colspan="4">Chargement de l'archive…</td></tr></tbody></table></div>
+      </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
     <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
@@ -1582,10 +1584,12 @@ async function addContainerModule(parent, clients, readOnly=false) {
       groups.get(m.intervention_code).push(m);
     });
     tbody.replaceChildren();
-    const archived=[...groups.entries()].sort((a,b)=>String(b[1].map(x=>x.entry_at).sort()[0]||"").localeCompare(String(a[1].map(x=>x.entry_at).sort()[0]||"")));
-    if(!archived.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;td.textContent="Aucun bon TRANSALIA archivé pour le moment.";tr.appendChild(td);tbody.appendChild(tr);return;}
-    archived.forEach(([code,list])=>{
-      const first=[...list].sort((a,b)=>String(a.entry_at).localeCompare(String(b.entry_at)))[0];
+    const cutoff=Date.now()-(30*24*60*60*1000);
+    const archived=[...groups.entries()].map(([code,list])=>({code,list,first:[...list].sort((a,b)=>String(a.entry_at).localeCompare(String(b.entry_at)))[0]}))
+      .filter(item=>{const t=Date.parse(item.first?.entry_at||"");return Number.isFinite(t)&&t>=cutoff;})
+      .sort((a,b)=>Date.parse(b.first?.entry_at||0)-Date.parse(a.first?.entry_at||0));
+    if(!archived.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;td.textContent="Aucun bon TRANSALIA dans les 30 derniers jours.";tr.appendChild(td);tbody.appendChild(tr);return;}
+    archived.forEach(({code,list,first})=>{
       const tr=document.createElement("tr");
       [code,formatDate(first?.entry_at),String(list.length)].forEach(v=>{const td=document.createElement("td");td.textContent=v;td.style.padding="9px 7px";td.style.borderBottom="1px solid #e2e8f0";tr.appendChild(td);});
       const action=document.createElement("td");action.style.padding="7px";action.style.borderBottom="1px solid #e2e8f0";
@@ -1609,6 +1613,11 @@ async function addContainerModule(parent, clients, readOnly=false) {
       </style></head><body><div class="sheet"><img class="logo" src="${logo}" alt="IPSEN LOGISTICS"><div class="title">BON DE DÉCHARGEMENT – TRANSALIA</div><div class="meta"><span><b>Date :</b> ${dateText}</span><span><b>Heure :</b> ${timeText}</span></div><p><b>Référence intervention :</b> ${safePrintText(interventionCode)}</p><table><thead><tr><th>N°</th><th>Numéro du conteneur</th><th>Type</th><th>Observation</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total : ${list.length} conteneur(s)</div></div><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button></body></html>`);
     w.document.close();
   }
+  el("toggleTransaliaArchive")?.addEventListener("click",()=>{
+    const content=el("transaliaArchiveContent"),button=el("toggleTransaliaArchive"),chevron=el("transaliaArchiveChevron");
+    if(!content||!button)return;
+    const opening=content.hidden;content.hidden=!opening;button.setAttribute("aria-expanded",String(opening));if(chevron)chevron.textContent=opening?"▲":"▼";
+  });
   el("cHandledBy")?.addEventListener("change",updateTransaliaInterventionUI);
   el("startTransaliaIntervention")?.addEventListener("click",()=>{
     if(activeTransaliaIntervention){alert("Une intervention est déjà ouverte. Clôturez-la avant d'en démarrer une autre.");return;}
