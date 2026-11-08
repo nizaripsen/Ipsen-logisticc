@@ -1477,6 +1477,12 @@ async function addContainerModule(parent, clients, readOnly=false) {
     </div>
     <label for="cTruck">Matricule camion / transporteur</label>
     <input id="cTruck" placeholder="Ex. 123 تونس 4567" autocomplete="off" required>
+    <label for="cHandledBy">Qui a déchargé le conteneur ?</label>
+    <select id="cHandledBy" required><option value="IPSEN">IPSEN</option><option value="TRANSALIA">TRANSALIA</option></select>
+    <div id="transaliaInterventionBox" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin:10px 0">
+      <strong>Intervention TRANSALIA</strong><p id="transaliaInterventionLabel" style="margin:6px 0 10px">Aucune intervention ouverte.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px"><button id="startTransaliaIntervention" type="button" class="btn-green">＋ Démarrer une intervention</button><button id="printTransaliaBon" type="button" class="btn-light" disabled>📄 Générer le bon</button><button id="closeTransaliaIntervention" type="button" class="btn-amber" disabled>Clôturer</button></div>
+    </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
     <p id="cMsg" role="status"></p><hr style="border:0;border-top:1px solid #e2e8f0;margin:22px 0">
     <h3>Historique des mouvements</h3>
@@ -1507,6 +1513,8 @@ async function addContainerModule(parent, clients, readOnly=false) {
   const el = id => section.querySelector("#"+id);
   let movements = [];
   let returnBons = [];
+  let activeTransaliaIntervention = null;
+  try { activeTransaliaIntervention = JSON.parse(localStorage.getItem("ipsen_transalia_intervention") || "null"); } catch (_) {}
   let containerQuickFilter="";
   let lastFilteredMovements = [];
   section.querySelectorAll("[data-container-filter]").forEach(card=>{
@@ -1550,6 +1558,48 @@ async function addContainerModule(parent, clients, readOnly=false) {
   }
   if(!readOnly && el("cAddCompany")) el("cAddCompany").addEventListener("click",addCompany);
   await loadCompanies();
+  function updateTransaliaInterventionUI(){
+    const box=el("transaliaInterventionBox"), label=el("transaliaInterventionLabel");
+    if(!box || !label)return;
+    box.style.display=el("cHandledBy")?.value==="TRANSALIA"?"block":"none";
+    const count=activeTransaliaIntervention?movements.filter(m=>m.intervention_code===activeTransaliaIntervention.code).length:0;
+    label.textContent=activeTransaliaIntervention?`Intervention ${activeTransaliaIntervention.code} — ${count} conteneur(s) enregistré(s)`:"Aucune intervention ouverte. Démarrez-en une avant de saisir les conteneurs TRANSALIA.";
+    el("printTransaliaBon").disabled=!activeTransaliaIntervention||count===0;
+    el("closeTransaliaIntervention").disabled=!activeTransaliaIntervention;
+    el("startTransaliaIntervention").disabled=!!activeTransaliaIntervention;
+  }
+  function safePrintText(value){return String(value??"—").replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[ch]));}
+  function generateTransaliaBon(){
+    if(!activeTransaliaIntervention){alert("Démarrez une intervention TRANSALIA.");return;}
+    const list=movements.filter(m=>m.intervention_code===activeTransaliaIntervention.code).sort((a,b)=>String(a.entry_at).localeCompare(String(b.entry_at)));
+    if(!list.length){alert("Aucun conteneur TRANSALIA dans cette intervention.");return;}
+    const rows=list.map((m,i)=>`<tr><td>${i+1}</td><td>${safePrintText(m.container_number)}</td><td>${safePrintText(m.container_type?m.container_type+" pieds":"—")}</td><td>${m.has_damage==="Oui"?"Dégâts signalés":"Conforme"}</td></tr>`).join("");
+    const date=new Date(activeTransaliaIntervention.started_at);
+    const dateText=date.toLocaleDateString("fr-FR",{timeZone:"Africa/Tunis"});
+    const timeText=date.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",timeZone:"Africa/Tunis"});
+    const w=window.open("","_blank","width=1000,height=800");
+    if(!w){alert("Autorisez les fenêtres pop-up pour générer le bon.");return;}
+    const logo="data:image/png;base64,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";
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bon de déchargement TRANSALIA</title><style>
+      *{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#102a43;margin:0;padding:12mm}.sheet{min-height:270mm;border:3px solid #102f58;border-radius:18px;padding:12mm 9mm}.logo{display:block;width:250px;max-height:145px;object-fit:contain;margin:0 auto 14px}.title{background:#082f63;color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:23px;font-weight:800;margin:12px 0 18px}.meta{display:flex;justify-content:space-between;gap:12px;background:#e5f0fa;padding:12px 16px;border-radius:9px;font-size:16px;margin-bottom:22px}table{width:100%;border-collapse:collapse;font-size:15px}th{background:#082f63;color:white;padding:12px 8px}td{border:1px solid #64748b;padding:12px 8px;text-align:center}tbody tr:nth-child(even){background:#f7faff}.total{background:#dceafa;color:#082f63;text-align:center;padding:12px;font-size:22px;font-weight:800;border-radius:9px;margin-top:18px}.print{display:block;margin:18px auto;padding:10px 18px;background:#075db5;color:white;border:0;border-radius:8px;font-weight:bold}@page{size:A4;margin:10mm}@media print{body{padding:0}.sheet{min-height:277mm}.print{display:none}}
+      </style></head><body><div class="sheet"><img class="logo" src="${logo}" alt="IPSEN LOGISTICS"><div class="title">BON DE DÉCHARGEMENT – TRANSALIA</div><div class="meta"><span><b>Date :</b> ${dateText}</span><span><b>Heure :</b> ${timeText}</span></div><table><thead><tr><th>N°</th><th>Numéro du conteneur</th><th>Type</th><th>Observation</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total : ${list.length} conteneur(s)</div></div><button class="print" onclick="window.print()">Imprimer / Enregistrer en PDF</button></body></html>`);
+    w.document.close();
+  }
+  el("cHandledBy")?.addEventListener("change",updateTransaliaInterventionUI);
+  el("startTransaliaIntervention")?.addEventListener("click",()=>{
+    if(activeTransaliaIntervention){alert("Une intervention est déjà ouverte. Clôturez-la avant d'en démarrer une autre.");return;}
+    const now=new Date();const stamp=now.toISOString().replace(/[-:TZ.]/g,"").slice(0,14);
+    activeTransaliaIntervention={code:"TR-"+stamp,started_at:now.toISOString()};
+    localStorage.setItem("ipsen_transalia_intervention",JSON.stringify(activeTransaliaIntervention));updateTransaliaInterventionUI();
+  });
+  el("printTransaliaBon")?.addEventListener("click",generateTransaliaBon);
+  el("closeTransaliaIntervention")?.addEventListener("click",()=>{
+    if(!activeTransaliaIntervention)return;
+    const count=movements.filter(m=>m.intervention_code===activeTransaliaIntervention.code).length;
+    if(!count){alert("Cette intervention ne contient aucun conteneur.");return;}
+    if(!confirm(`Clôturer ${activeTransaliaIntervention.code} (${count} conteneur(s)) ? Générez le bon avant la clôture si nécessaire.`))return;
+    activeTransaliaIntervention=null;localStorage.removeItem("ipsen_transalia_intervention");updateTransaliaInterventionUI();
+  });
   async function refreshReturnBons(){
     const {data,error}=await sb.from("container_return_bons").select("id,container_movement_id,container_number,received_at,image_path").order("received_at",{ascending:false});
     if(error){ if(el("cBonMsg")) el("cBonMsg").textContent="Pour activer les bons de restitution, exécutez le script SQL fourni avec ce fichier. Détail : "+error.message; return; }
@@ -1587,7 +1637,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     finally{button.disabled=false;button.textContent="Valider";}
   }
   async function refresh() {
-    const {data,error}=await sb.from("container_movements").select("id,container_number,container_company,container_type,has_damage,exit_has_damage,truck_registration,exit_truck_registration,entry_at,exit_at,notes,status").order("entry_at",{ascending:false}).limit(500);
+    const {data,error}=await sb.from("container_movements").select("id,container_number,container_company,container_type,has_damage,exit_has_damage,truck_registration,exit_truck_registration,entry_at,exit_at,notes,status,handled_by,intervention_code").order("entry_at",{ascending:false}).limit(500);
     if(error){el("cMsg").textContent="Tableau conteneurs indisponible. Exécutez le script SQL fourni et vérifiez les droits RLS."; return;}
     movements=data||[];
     await refreshReturnBons();
@@ -1596,6 +1646,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     el("cTodayIn").textContent=movements.filter(x=>x.entry_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.entry_at))===today).length;
     el("cTodayOut").textContent=movements.filter(x=>x.exit_at&&new Intl.DateTimeFormat("en-CA", {timeZone:"Africa/Tunis", year:"numeric", month:"2-digit", day:"2-digit"}).format(new Date(x.exit_at))===today).length;
     renderRows();
+    updateTransaliaInterventionUI();
   }
   function renderRows(){
     const normalizeSearch = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
@@ -1724,12 +1775,14 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const number=el("cNumber").value.trim().toUpperCase().replace(/\s+/g,"");
     if(!/^[A-Z]{4}[A-Z0-9]{7}$/.test(number)){el("cMsg").textContent="Vérifiez le numéro : format habituel 4 lettres + 7 caractères.";return;}
     if(action==="entry" && (!el("cType").value || !el("cDamage").value || !el("cCompany").value.trim() || !el("cTruck").value.trim())){el("cMsg").textContent="Renseignez la compagnie du conteneur, le type, les dégâts et le matricule camion.";return;}
+    const handledBy=el("cHandledBy")?.value||"IPSEN";
+    if(action==="entry" && handledBy==="TRANSALIA" && !activeTransaliaIntervention){el("cMsg").textContent="Démarrez une intervention TRANSALIA avant d'enregistrer ses conteneurs.";return;}
     el("cEntry").disabled=el("cExit").disabled=true;el("cMsg").textContent="Enregistrement…";
     try{
       const active=movements.find(x=>x.container_number===number&&!x.exit_at);
       if(action==="entry"){
         if(active){el("cMsg").textContent="Ce conteneur est déjà enregistré dans le parc. Utilisez la sortie si nécessaire.";return;}
-        const {error}=await sb.from("container_movements").insert({container_number:number,container_company:el("cCompany").value.trim(),container_type:el("cType").value,has_damage:el("cDamage").value,truck_registration:el("cTruck").value.trim(),client_id:null,created_by:(await sb.auth.getUser()).data.user?.id});
+        const {error}=await sb.from("container_movements").insert({container_number:number,container_company:el("cCompany").value.trim(),container_type:el("cType").value,has_damage:el("cDamage").value,truck_registration:el("cTruck").value.trim(),handled_by:handledBy,intervention_code:handledBy==="TRANSALIA"?activeTransaliaIntervention.code:null,client_id:null,created_by:(await sb.auth.getUser()).data.user?.id});
         if(error)throw error;
         el("cMsg").textContent=`Entrée enregistrée pour ${number}. Date et heure générées automatiquement.`;
       }else{
@@ -1768,6 +1821,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     el("cEntry").addEventListener("click",()=>saveMovement("entry"));
     el("cExit").addEventListener("click",()=>saveMovement("exit"));
   }
+  updateTransaliaInterventionUI();
   await refresh();
 }
 form.addEventListener("submit", async (e) => {
