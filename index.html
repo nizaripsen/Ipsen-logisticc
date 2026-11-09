@@ -1725,6 +1725,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
       <input id="cSearch" style="flex:1;min-width:220px" placeholder="Rechercher : numéro, compagnie, statut, matricule…" aria-label="Recherche rapide dans tous les mouvements">
       <button id="cPrintFiltered" type="button" class="btn-light">Imprimer la liste</button>
+      <button id="cPrintTodayByCompany" type="button" class="btn-green">📄 Sorties du jour — par compagnie</button>
       <button id="cResetFilters" type="button" class="btn-light">Réinitialiser</button>
     </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
@@ -2065,6 +2066,43 @@ async function addContainerModule(parent, clients, readOnly=false) {
   el("cResetFilters")?.addEventListener("click",()=>{
     el("cSearch").value=""; el("cDateFrom").value=""; el("cDateTo").value="";
     el("cStatusFilter").value="all"; containerQuickFilter=""; renderRows();
+  });
+  el("cPrintTodayByCompany")?.addEventListener("click",()=>{
+    const today=todayTunisKey();
+    const todaysExits=movements.filter(x=>x.exit_at && tunisDateKey(x.exit_at)===today);
+    if(!todaysExits.length){
+      alert("Aucune sortie de conteneur enregistrée aujourd'hui.");
+      return;
+    }
+    const groups=new Map();
+    todaysExits.forEach(x=>{
+      const company=String(x.container_company||"Compagnie non renseignée").trim()||"Compagnie non renseignée";
+      if(!groups.has(company))groups.set(company,[]);
+      groups.get(company).push(x);
+    });
+    const safe=value=>String(value??"—").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const pages=[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],"fr")).map(([company,list])=>{
+      const rows=list.map((x,i)=>`<tr><td>${i+1}</td><td>${safe(x.container_number)}</td><td>${safe(x.container_type?x.container_type+" pieds":"—")}</td><td>${safe(formatDate(x.exit_at))}</td><td>${safe(x.exit_truck_registration||"—")}</td><td>☐ À récupérer</td></tr>`).join("");
+      return `<section class="company-page"><h2>${safe(company)}</h2><p>${list.length} conteneur(s) sorti(s) le ${safe(today)}</p><table><thead><tr><th>N°</th><th>N° conteneur</th><th>Type</th><th>Date de sortie</th><th>Matricule sortie</th><th>Bon de restitution</th></tr></thead><tbody>${rows}</tbody></table><div class="signature">Coursier : ____________________ &nbsp;&nbsp; Signature : ____________________</div></section>`;
+    }).join("");
+    const w=window.open("","_blank","width=1100,height=800");
+    if(!w){alert("Autorisez les fenêtres pop-up pour imprimer.");return;}
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Sorties du jour par compagnie - IPSEN</title>
+      <style>
+        *{box-sizing:border-box}body{font-family:Arial,sans-serif;margin:24px;color:#263746}
+        h1{color:#17466b;margin-bottom:5px}.intro{color:#526579;margin-bottom:22px}
+        .company-page{page-break-after:always;break-after:page;margin-bottom:30px}
+        .company-page:last-child{page-break-after:auto;break-after:auto}
+        h2{color:#17466b;border-bottom:2px solid #1769aa;padding-bottom:9px}
+        table{width:100%;border-collapse:collapse;font-size:12px}
+        th,td{border:1px solid #ccd6df;padding:9px;text-align:left}
+        th{background:#edf3f8}.signature{margin-top:35px;font-size:13px}
+        @media print{body{margin:12mm}.company-page{min-height:180mm}}
+      </style></head><body>
+      <h1>IPSEN LOGISTICS — Sorties du jour</h1>
+      <p class="intro">Date : ${safe(today)} — ${todaysExits.length} conteneur(s) — ${groups.size} compagnie(s). Une page séparée par compagnie.</p>
+      ${pages}<script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.close();
   });
   el("cPrintFiltered")?.addEventListener("click",()=>{
     if(!lastFilteredMovements.length){alert("Aucun conteneur à imprimer pour ces filtres.");return;}
