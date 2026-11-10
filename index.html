@@ -1746,6 +1746,17 @@ async function addContainerModule(parent, clients, readOnly=false) {
         <option value="pending">Non validés</option>
       </select>
     </div>
+    <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 14px;padding:14px;background:#f5f9fd;border:1px solid #d8e5f1;border-radius:10px">
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label for="returnBonDateFrom" style="font-weight:600">Date de sortie du</label>
+        <input type="date" id="returnBonDateFrom" style="padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px">
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px">
+        <label for="returnBonDateTo" style="font-weight:600">Au</label>
+        <input type="date" id="returnBonDateTo" style="padding:9px 10px;border:1px solid #cbd5e1;border-radius:8px">
+      </div>
+      <button type="button" id="printPendingReturnBons" class="btn-green">🖨️ Imprimer les non validés par compagnie</button>
+    </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Date de sortie</th><th>État du bon</th><th>Action</th></tr></thead><tbody id="cBonRows"></tbody></table></div>
     <p id="cBonMsg" role="status"></p>
     </div>`;
@@ -1901,6 +1912,85 @@ async function addContainerModule(parent, clients, readOnly=false) {
     }
   }
   el("cBonStatusFilter")?.addEventListener("change",renderReturnBons);
+
+  // Imprimer uniquement les conteneurs sortis dont le bon de restitution n'est pas encore validé.
+  el("printPendingReturnBons")?.addEventListener("click",()=>{
+    const receivedIds=new Set(returnBons.map(b=>b.container_movement_id));
+    const fromDate=el("returnBonDateFrom")?.value||"";
+    const toDate=el("returnBonDateTo")?.value||"";
+    if(fromDate&&toDate&&fromDate>toDate){alert("La date « du » doit être antérieure ou égale à la date « au ».");return;}
+    const tunisianDateKey=value=>{
+      const d=new Date(value);
+      if(Number.isNaN(d.getTime()))return "";
+      const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);
+      const part=type=>parts.find(x=>x.type===type)?.value||"";
+      return `${part("year")}-${part("month")}-${part("day")}`;
+    };
+    const pending=movements.filter(m=>{
+      if(!m.exit_at||receivedIds.has(m.id))return false;
+      const day=tunisianDateKey(m.exit_at);
+      return !!day&&(!fromDate||day>=fromDate)&&(!toDate||day<=toDate);
+    });
+    if(!pending.length){alert("Aucun conteneur non validé pour la période choisie.");return;}
+
+    const groups=new Map();
+    pending.forEach(m=>{
+      const company=String(m.container_company||"Compagnie non renseignée").trim()||"Compagnie non renseignée";
+      if(!groups.has(company))groups.set(company,[]);
+      groups.get(company).push(m);
+    });
+
+    const safe=value=>String(value??"—").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const logoUrl=new URL("images.png",document.baseURI).href;
+    const exportDate=new Date().toLocaleString("fr-FR",{timeZone:"Africa/Tunis"});
+    const pages=[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],"fr")).map(([company,list],index)=>{
+      list.sort((a,b)=>new Date(a.exit_at)-new Date(b.exit_at));
+      const rows=list.map((m,i)=>`<tr><td>${i+1}</td><td class="container">${safe(m.container_number)}</td><td>${safe(formatDate(m.exit_at))}</td></tr>`).join("");
+      return `<section class="company-page">
+        <header class="report-header">
+          <img src="${safe(logoUrl)}" alt="IPSEN LOGISTICS" onerror="this.style.display='none'">
+          <div><div class="brand">IPSEN LOGISTICS</div><div class="subtitle">SUIVI DES BONS DE RESTITUTION</div></div>
+        </header>
+        <div class="report-meta"><span>Édité le : ${safe(exportDate)}</span><span>Période : ${safe(fromDate||"Début")} au ${safe(toDate||"Aujourd'hui")}</span><span>Compagnie ${index+1}/${groups.size}</span></div>
+        <h1>CONTENEURS NON VALIDÉS</h1>
+        <h2>${safe(company)}</h2>
+        <p class="intro">Liste des conteneurs sortis dont le bon de restitution reste en attente de validation.</p>
+        <table><thead><tr><th>N°</th><th>NUMÉRO DU CONTENEUR</th><th>DATE DE SORTIE</th></tr></thead><tbody>${rows}</tbody></table>
+        <div class="total">Total : ${list.length} conteneur(s)</div>
+        <div class="signature">Suivi / Visa : __________________________________</div>
+      </section>`;
+    }).join("");
+
+    const popup=window.open("","_blank","width=1000,height=800");
+    if(!popup){alert("Autorisez les fenêtres pop-up pour imprimer la liste.");return;}
+    popup.document.open();
+    popup.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Conteneurs non validés - IPSEN</title>
+      <style>
+        *{box-sizing:border-box}
+        body{font-family:Arial,Helvetica,sans-serif;color:#20364a;margin:0;background:#fff}
+        .company-page{padding:18mm 16mm;min-height:260mm;page-break-after:always;break-after:page}
+        .company-page:last-child{page-break-after:auto;break-after:auto}
+        .report-header{display:flex;align-items:center;gap:18px;border-bottom:3px solid #145b91;padding-bottom:14px}
+        .report-header img{width:150px;max-height:70px;object-fit:contain}
+        .brand{font-size:22px;font-weight:800;letter-spacing:1.5px;color:#124b78}
+        .subtitle{font-size:11px;font-weight:700;letter-spacing:1.2px;color:#64748b;margin-top:5px}
+        .report-meta{display:flex;justify-content:space-between;gap:15px;margin-top:18px;color:#64748b;font-size:11px}
+        h1{text-align:center;color:#124b78;font-size:21px;letter-spacing:1px;margin:30px 0 8px}
+        h2{text-align:center;font-size:20px;color:#17324d;margin:0 0 8px}
+        .intro{text-align:center;color:#64748b;font-size:12px;margin:0 0 24px}
+        table{width:100%;border-collapse:collapse;font-size:13px}
+        th{background:#e8f1f9;color:#124b78;font-size:11px;letter-spacing:.5px}
+        th,td{border:1px solid #cbd8e3;padding:11px 12px;text-align:left}
+        tbody tr:nth-child(even){background:#f7fafc}
+        .container{font-weight:700;letter-spacing:.3px}
+        .total{text-align:right;font-weight:700;color:#124b78;margin-top:16px;padding:12px;background:#eef5fb;border-radius:6px}
+        .signature{margin-top:55px;text-align:right;font-size:12px;color:#475569}
+        @page{size:A4;margin:0}
+        @media print{.company-page{min-height:297mm}button{display:none}}
+      </style></head><body>${pages}<script>window.onload=()=>window.print()<\/script></body></html>`);
+    popup.document.close();
+  });
+
   async function validateReturnBon(m,button){
     if(!window.confirm(`Confirmer la réception du bon de restitution pour ${m.container_number} ?`))return;
     button.disabled=true;button.textContent="Validation…";el("cBonMsg").textContent="Enregistrement de la validation…";
