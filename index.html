@@ -1943,14 +1943,17 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const safe=value=>String(value??"—").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
     const logoUrl=new URL("images.png",document.baseURI).href;
     const exportDate=new Date().toLocaleString("fr-FR",{timeZone:"Africa/Tunis"});
+    const normalizeCompany=value=>String(value||"")
+      .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")
+      .toUpperCase().replace(/[^A-Z0-9]/g,"");
     const courierByCompany={
-      "CTN":"AMINE","MSC":"AMINE","MAERSK":"AMINE","CMA":"AMINE",
+      "CTN":"AMINE","MSC":"AMINE","MAERSK":"AMINE","CMA":"AMINE","CMACGM":"AMINE",
       "MESSINA":"HBIB","GENMAR":"HBIB",
       "COSCO":"ALI","TUNISHIP":"ALI","AKKON":"ALI"
     };
     const pages=[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],"fr")).map(([company,list],index)=>{
       list.sort((a,b)=>new Date(a.exit_at)-new Date(b.exit_at));
-      const courier=courierByCompany[company.trim().toUpperCase()]||"NON AFFECTÉ";
+      const courier=courierByCompany[normalizeCompany(company)]||"NON AFFECTÉ";
       const rows=list.map((m,i)=>`<tr><td>${i+1}</td><td class="container">${safe(m.container_number)}</td><td>${safe(formatDate(m.exit_at))}</td></tr>`).join("");
       return `<section class="company-page">
         <header class="report-header">
