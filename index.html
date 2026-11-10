@@ -1738,6 +1738,14 @@ async function addContainerModule(parent, clients, readOnly=false) {
       <div style="background:#fff5e8;padding:12px;border-radius:9px"><small>En attente</small><h2 id="cBonPending">—</h2></div>
       <div style="background:#edf7f3;padding:12px;border-radius:9px"><small>Bons reçus</small><h2 id="cBonReceived">—</h2></div>
     </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:12px 0">
+      <label for="cBonStatusFilter" style="font-weight:600">Filtrer par validation :</label>
+      <select id="cBonStatusFilter" style="min-width:190px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;background:white">
+        <option value="all">Tous les bons</option>
+        <option value="validated">Validés</option>
+        <option value="pending">Non validés</option>
+      </select>
+    </div>
     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Date de sortie</th><th>État du bon</th><th>Action</th></tr></thead><tbody id="cBonRows"></tbody></table></div>
     <p id="cBonMsg" role="status"></p>
     </div>`;
@@ -1871,8 +1879,13 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const pending=exited.filter(x=>!receivedIds.has(x.id));
     el("cBonPending").textContent=pending.length;
     el("cBonReceived").textContent=exited.length-pending.length;
+    const filter=el("cBonStatusFilter")?.value||"all";
+    const visible=exited.filter(m=>{
+      const isValidated=receivedIds.has(m.id);
+      return filter==="all" || (filter==="validated"&&isValidated) || (filter==="pending"&&!isValidated);
+    });
     const tbody=el("cBonRows");tbody.replaceChildren();
-    for(const m of exited){
+    for(const m of visible){
       const bon=returnBons.find(x=>x.container_movement_id===m.id);
       const tr=document.createElement("tr");
       const vals=[m.container_number,formatDate(m.exit_at),bon?"Validé":"En attente"];
@@ -1881,8 +1894,13 @@ async function addContainerModule(parent, clients, readOnly=false) {
       if(!readOnly&&!bon){const btn=document.createElement("button");btn.type="button";btn.textContent="Valider";btn.style.cssText="background:#138a62;color:white;border:0;border-radius:6px;padding:7px 10px;cursor:pointer";btn.addEventListener("click",()=>validateReturnBon(m,btn));action.appendChild(btn);}else action.textContent=bon?"Validé":"Consultation seule";
       tr.appendChild(action);tbody.appendChild(tr);
     }
-    if(!exited.length){const tr=document.createElement("tr");const td=document.createElement("td");td.colSpan=4;td.textContent="Aucune sortie enregistrée.";tr.appendChild(td);tbody.appendChild(tr);}
+    if(!visible.length){
+      const tr=document.createElement("tr");const td=document.createElement("td");td.colSpan=4;
+      td.textContent=!exited.length?"Aucune sortie enregistrée.":"Aucun bon ne correspond à ce filtre.";
+      tr.appendChild(td);tbody.appendChild(tr);
+    }
   }
+  el("cBonStatusFilter")?.addEventListener("change",renderReturnBons);
   async function validateReturnBon(m,button){
     if(!window.confirm(`Confirmer la réception du bon de restitution pour ${m.container_number} ?`))return;
     button.disabled=true;button.textContent="Validation…";el("cBonMsg").textContent="Enregistrement de la validation…";
