@@ -1946,10 +1946,16 @@ async function addContainerModule(parent, clients, readOnly=false) {
       const part=type=>parts.find(x=>x.type===type)?.value||"";
       return `${part("year")}-${part("month")}-${part("day")}`;
     };
+    const selectedCourier=el("cBonCourierFilter")?.value||"all";
     const pending=movements.filter(m=>{
       if(!m.exit_at||receivedIds.has(m.id))return false;
       const day=tunisianDateKey(m.exit_at);
-      return !!day&&(!fromDate||day>=fromDate)&&(!toDate||day<=toDate);
+      if(!day||(fromDate&&day<fromDate)||(toDate&&day>toDate))return false;
+      if(selectedCourier!=="all"){
+        const assigned=courierByCompany[normalizeCourierCompany(m.container_company)]||"";
+        if(assigned!==selectedCourier)return false;
+      }
+      return true;
     });
     if(!pending.length){alert("Aucun conteneur non validé pour la période choisie.");return;}
 
@@ -1986,7 +1992,6 @@ async function addContainerModule(parent, clients, readOnly=false) {
         <h2>${safe(company)}</h2>
         <p class="intro">Liste des conteneurs sortis dont le bon de restitution reste en attente de validation.</p>
         <table><thead><tr><th>N°</th><th>NUMÉRO DU CONTENEUR</th><th>DATE DE SORTIE</th><th>BON RÉCUPÉRÉ</th></tr></thead><tbody>${rows}</tbody></table>
-        <div class="total">Total : ${list.length} conteneur(s)</div>
       </section>`;
     }).join("");
 
