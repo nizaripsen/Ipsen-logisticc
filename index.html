@@ -1745,6 +1745,13 @@ async function addContainerModule(parent, clients, readOnly=false) {
         <option value="validated">Validés</option>
         <option value="pending">Non validés</option>
       </select>
+      <label for="cBonCourierFilter" style="font-weight:600">Afficher les conteneurs de :</label>
+      <select id="cBonCourierFilter" style="min-width:170px;padding:9px 12px;border:1px solid #cbd5e1;border-radius:8px;background:white">
+        <option value="all">Tous les coursiers</option>
+        <option value="AMINE">AMINE</option>
+        <option value="HBIB">HBIB</option>
+        <option value="ALI">ALI</option>
+      </select>
     </div>
     <div style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 14px;padding:14px;background:#f5f9fd;border:1px solid #d8e5f1;border-radius:10px">
       <div style="display:flex;flex-direction:column;gap:5px">
@@ -1757,7 +1764,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
       </div>
       <button type="button" id="printPendingReturnBons" class="btn-green">🖨️ Imprimer les non validés par compagnie</button>
     </div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Date de sortie</th><th>État du bon</th><th>Action</th></tr></thead><tbody id="cBonRows"></tbody></table></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie</th><th>Responsable</th><th>Date de sortie</th><th>État du bon</th><th>Action</th></tr></thead><tbody id="cBonRows"></tbody></table></div>
     <p id="cBonMsg" role="status"></p>
     </div>`;
   parent.appendChild(section);
@@ -1883,6 +1890,14 @@ async function addContainerModule(parent, clients, readOnly=false) {
     returnBons=data||[];
     renderReturnBons();
   }
+  const normalizeCourierCompany=value=>String(value||"")
+    .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
+    .toUpperCase().replace(/[^A-Z0-9]/g,"");
+  const courierByCompany={
+    "CTN":"AMINE","MSC":"AMINE","MAERSK":"AMINE","CMA":"AMINE","CMACGM":"AMINE",
+    "MESSINA":"HBIB","GENMAR":"HBIB",
+    "COSCO":"ALI","TUNISHIP":"ALI","AKKON":"ALI"
+  };
   async function renderReturnBons(){
     if(!el("cBonRows"))return;
     const exited=movements.filter(x=>x.exit_at);
@@ -1891,27 +1906,32 @@ async function addContainerModule(parent, clients, readOnly=false) {
     el("cBonPending").textContent=pending.length;
     el("cBonReceived").textContent=exited.length-pending.length;
     const filter=el("cBonStatusFilter")?.value||"all";
+    const courierFilter=el("cBonCourierFilter")?.value||"all";
     const visible=exited.filter(m=>{
       const isValidated=receivedIds.has(m.id);
+      const courier=courierByCompany[normalizeCourierCompany(m.container_company)]||"";
+      if(courierFilter!=="all")return !isValidated&&courier===courierFilter;
       return filter==="all" || (filter==="validated"&&isValidated) || (filter==="pending"&&!isValidated);
     });
     const tbody=el("cBonRows");tbody.replaceChildren();
     for(const m of visible){
       const bon=returnBons.find(x=>x.container_movement_id===m.id);
+      const courier=courierByCompany[normalizeCourierCompany(m.container_company)]||"Non affecté";
       const tr=document.createElement("tr");
-      const vals=[m.container_number,formatDate(m.exit_at),bon?"Validé":"En attente"];
-      vals.forEach((v,i)=>{const td=document.createElement("td");td.textContent=v||"—";if(i===2)td.style.color=bon?"#138a62":"#b45309";tr.appendChild(td);});
+      const vals=[m.container_number,m.container_company||"—",courier,formatDate(m.exit_at),bon?"Validé":"En attente"];
+      vals.forEach((v,i)=>{const td=document.createElement("td");td.textContent=v||"—";if(i===4)td.style.color=bon?"#138a62":"#b45309";tr.appendChild(td);});
       const action=document.createElement("td");
       if(!readOnly&&!bon){const btn=document.createElement("button");btn.type="button";btn.textContent="Valider";btn.style.cssText="background:#138a62;color:white;border:0;border-radius:6px;padding:7px 10px;cursor:pointer";btn.addEventListener("click",()=>validateReturnBon(m,btn));action.appendChild(btn);}else action.textContent=bon?"Validé":"Consultation seule";
       tr.appendChild(action);tbody.appendChild(tr);
     }
     if(!visible.length){
-      const tr=document.createElement("tr");const td=document.createElement("td");td.colSpan=4;
-      td.textContent=!exited.length?"Aucune sortie enregistrée.":"Aucun bon ne correspond à ce filtre.";
+      const tr=document.createElement("tr");const td=document.createElement("td");td.colSpan=6;
+      td.textContent=!exited.length?"Aucune sortie enregistrée.":courierFilter!=="all"?"Aucun conteneur non validé affecté à ce nom.":"Aucun bon ne correspond à ce filtre.";
       tr.appendChild(td);tbody.appendChild(tr);
     }
   }
   el("cBonStatusFilter")?.addEventListener("change",renderReturnBons);
+  el("cBonCourierFilter")?.addEventListener("change",renderReturnBons);
 
   // Imprimer uniquement les conteneurs sortis dont le bon de restitution n'est pas encore validé.
   el("printPendingReturnBons")?.addEventListener("click",()=>{
@@ -1944,7 +1964,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const logoUrl=new URL("images.png",document.baseURI).href;
     const exportDate=new Date().toLocaleString("fr-FR",{timeZone:"Africa/Tunis"});
     const normalizeCompany=value=>String(value||"")
-      .normalize("NFD").replace(/[\\u0300-\\u036f]/g,"")
+      .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
       .toUpperCase().replace(/[^A-Z0-9]/g,"");
     const courierByCompany={
       "CTN":"AMINE","MSC":"AMINE","MAERSK":"AMINE","CMA":"AMINE","CMACGM":"AMINE",
@@ -1954,7 +1974,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
     const pages=[...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0],"fr")).map(([company,list],index)=>{
       list.sort((a,b)=>new Date(a.exit_at)-new Date(b.exit_at));
       const courier=courierByCompany[normalizeCompany(company)]||"NON AFFECTÉ";
-      const rows=list.map((m,i)=>`<tr><td>${i+1}</td><td class="container">${safe(m.container_number)}</td><td>${safe(formatDate(m.exit_at))}</td></tr>`).join("");
+      const rows=list.map((m,i)=>`<tr><td>${i+1}</td><td class="container">${safe(m.container_number)}</td><td>${safe(formatDate(m.exit_at))}</td><td class="check-cell">☐</td></tr>`).join("");
       return `<section class="company-page">
         <header class="report-header">
           <img src="${safe(logoUrl)}" alt="IPSEN LOGISTICS" onerror="this.style.display='none'">
@@ -1965,9 +1985,9 @@ async function addContainerModule(parent, clients, readOnly=false) {
         <h1>CONTENEURS NON VALIDÉS</h1>
         <h2>${safe(company)}</h2>
         <p class="intro">Liste des conteneurs sortis dont le bon de restitution reste en attente de validation.</p>
-        <table><thead><tr><th>N°</th><th>NUMÉRO DU CONTENEUR</th><th>DATE DE SORTIE</th></tr></thead><tbody>${rows}</tbody></table>
+        <table><thead><tr><th>N°</th><th>NUMÉRO DU CONTENEUR</th><th>DATE DE SORTIE</th><th>BON RÉCUPÉRÉ</th></tr></thead><tbody>${rows}</tbody></table>
         <div class="total">Total : ${list.length} conteneur(s)</div>
-        <div class="signature">Suivi / Visa : __________________________________</div>
+        <div class="signature">Signature du coursier : __________________________________</div>
       </section>`;
     }).join("");
 
@@ -1991,7 +2011,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
         .intro{text-align:center;color:#64748b;font-size:12px;margin:0 0 24px}
         table{width:100%;border-collapse:collapse;font-size:13px}
         th{background:#e8f1f9;color:#124b78;font-size:11px;letter-spacing:.5px}
-        th,td{border:1px solid #cbd8e3;padding:11px 12px;text-align:left}
+        th,td{border:1px solid #cbd8e3;padding:11px 12px;text-align:left}.check-cell{text-align:center;font-size:21px;font-weight:700;width:115px}
         tbody tr:nth-child(even){background:#f7fafc}
         .container{font-weight:700;letter-spacing:.3px}
         .total{text-align:right;font-weight:700;color:#124b78;margin-top:16px;padding:12px;background:#eef5fb;border-radius:6px}
