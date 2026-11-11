@@ -395,6 +395,7 @@ footer{padding:10px!important}
   <footer>IPSEN Logistics — Portail de consultation du stock et suivi des conteneurs</footer>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <script>
 const sb = window.supabase.createClient(
   "https://lyzxhpkpboqsluuyrypr.supabase.co",
@@ -1172,119 +1173,128 @@ async function addSubcontractorPointageModule(parent, user) {
   section.className="card hide";
   section.style.marginTop="20px";
   section.innerHTML=`
-    <div class="toolbar"><div><h1>🕒 Pointage sous-traitance</h1><p>Pointage des chauffeurs HAFSI et HANEN par QR Code — heure enregistrée automatiquement.</p></div></div>
+    <div class="toolbar"><div><h1>🕒 Pointage sous-traitance</h1><p>HAFSI et HANEN — un scan du badge enregistre automatiquement l'entrée ou la sortie.</p></div></div>
     <div class="stats-grid">
-      <div class="stat"><div class="stat-label">Présents actuellement</div><div class="stat-value" id="spPresent">—</div></div>
-      <div class="stat"><div class="stat-label">HAFSI en cours</div><div class="stat-value" id="spHafsi">—</div></div>
-      <div class="stat"><div class="stat-label">HANEN en cours</div><div class="stat-value" id="spHanen">—</div></div>
+      <div class="stat"><div class="stat-label">Présents actuellement</div><div class="stat-value" id="spPresent">0</div></div>
+      <div class="stat"><div class="stat-label">HAFSI en cours</div><div class="stat-value" id="spHafsi">0</div></div>
+      <div class="stat"><div class="stat-label">HANEN en cours</div><div class="stat-value" id="spHanen">0</div></div>
     </div>
     <div style="background:#f0f7ff;border:1px solid #bfdbfe;padding:16px;border-radius:14px;margin:16px 0">
-      <h3>Enregistrer un pointage</h3>
-      <p id="spCompanyHint">Scannez le QR de la société pour la sélectionner automatiquement.</p>
-      <div class="form-grid">
-        <div><label for="spCompany">Société</label><select id="spCompany"><option value="">Choisir HAFSI ou HANEN</option><option value="HAFSI">HAFSI</option><option value="HANEN">HANEN</option></select></div>
-        <div><label for="spWorker">Chauffeur / travailleur déjà enregistré</label><select id="spWorker"><option value="">Choisir dans la liste</option></select></div>
+      <h3>Scanner un badge chauffeur</h3>
+      <p>Le premier scan enregistre l'entrée. Le scan suivant enregistre la sortie. Chaque sortie et chaque retour au cours de la journée sont enregistrés automatiquement.</p>
+      <div class="form-actions"><button type="button" class="btn-green" id="spStartScanner">📷 OUVRIR LA CAMÉRA ET SCANNER</button><button type="button" class="btn-light" id="spRefresh">↻ Actualiser</button></div>
+      <div id="spScannerPanel" class="hide" style="margin:12px 0;padding:14px;background:#fff;border:1px solid #bfdbfe;border-radius:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><strong>Scanner le QR du badge</strong><button type="button" class="btn-red" id="spStopScanner">Fermer la caméra</button></div>
+        <div id="spQrReader" style="width:100%;max-width:440px;margin:12px auto"></div><p id="spScannerMsg" role="status" aria-live="polite">Autorisez l'accès à la caméra. Présentez un badge devant la caméra.</p>
       </div>
-      <div style="background:#fffaf0;border:1px solid #fed7aa;padding:14px;border-radius:12px;margin:12px 0">
-        <label for="spNewName">Nouveau chauffeur (uniquement s'il n'existe pas dans la liste)</label>
-        <div class="form-grid"><div><input id="spNewName" placeholder="Saisir le nom et prénom du chauffeur" autocomplete="off"></div><div style="display:flex;align-items:end"><button type="button" class="btn-light" id="spAddWorker" style="width:100%">＋ Enregistrer ce chauffeur</button></div></div>
-        <p id="spWorkerMsg" role="status" aria-live="polite">Le chauffeur sera enregistré dans la société sélectionnée et disponible dans la liste pour les prochaines fois.</p>
-      </div>
-      <div class="form-actions"><button type="button" class="btn-green" id="spEntry">🟢 ENTRÉE</button><button type="button" class="btn-amber" id="spExit">🔴 SORTIE</button><button type="button" class="btn-light" id="spRefresh">↻ Actualiser</button></div>
+      <div id="spLastScan" style="display:none;margin-top:12px;padding:14px;border-radius:12px;background:#ecfdf5;border:1px solid #86efac;font-weight:800"></div>
       <p id="spMsg" role="status" aria-live="polite"></p>
     </div>
     <h3>Pointages du jour</h3>
     <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button></div>
-    <div class="table-wrap"><table><thead><tr><th>Société</th><th>Travailleur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th></tr></thead><tbody id="spRows"><tr><td colspan="6">Chargement…</td></tr></tbody></table></div>
+    <div class="table-wrap"><table><thead><tr><th>Société</th><th>Badge</th><th>Chauffeur</th><th>Dernier scan</th><th>Heures travaillées</th><th>Situation</th></tr></thead><tbody id="spRows"><tr><td colspan="6">Chargement…</td></tr></tbody></table></div>
     <p id="spCount"></p>
     <div style="border-top:2px solid #d8e7f7;padding-top:20px;margin-top:24px">
-      <h3>QR Codes des sociétés — à imprimer et garder au bureau</h3>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0">
-        <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HAFSI</h3><img id="spQrHafsi" alt="QR HAFSI" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHafsi">🖨 Imprimer QR HAFSI</button></div>
-        <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HANEN</h3><img id="spQrHanen" alt="QR HANEN" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHanen">🖨 Imprimer QR HANEN</button></div>
-      </div>
+      <h3>Badges QR à imprimer — 3 par société</h3>
+      <p>Les badges sont numérotés. Vous pourrez ajouter les noms des chauffeurs plus tard. Chaque badge est individuel et unique.</p>
+      <div id="spBadgeGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:16px 0"></div>
+      <button type="button" class="btn-light" id="spPrintAllBadges">🖨 Imprimer les 6 badges</button>
     </div>`;
   parent.appendChild(section);
   const $=id=>section.querySelector("#"+id);
+  const companies=["HAFSI","HANEN"];
   const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
   const dateKey=v=>v?new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(v)):"";
   const fmt=v=>v?new Date(v).toLocaleTimeString("fr-FR",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit"}):"—";
-  const duration=(a,b)=>{if(!a)return "—";const mins=Math.max(0,Math.round(((b?new Date(b):new Date())-new Date(a))/60000));return `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,"0")}min`;};
   const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  const qrUrl=company=>{const u=new URL(location.href);u.searchParams.set("pointage_company",company);return "https://quickchart.io/qr?size=260&text="+encodeURIComponent(u.toString());};
-  $("spQrHafsi").src=qrUrl("HAFSI"); $("spQrHanen").src=qrUrl("HANEN");
-  function printQr(company){const url=qrUrl(company);const w=window.open("","_blank","width=600,height=700");if(!w){alert("Autorisez les fenêtres pop-up.");return;}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${company} - IPSEN</title><style>body{font-family:Arial;text-align:center;padding:35px;color:#173b63}img{width:280px;height:280px}h1{font-size:30px}</style></head><body><h1>IPSEN LOGISTICS</h1><h2>POINTAGE — ${company}</h2><img src="${url}"><p>Scanner ce QR Code au bureau IPSEN</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();}
-  $("spPrintHafsi").addEventListener("click",()=>printQr("HAFSI")); $("spPrintHanen").addEventListener("click",()=>printQr("HANEN"));
-  const params=new URLSearchParams(location.search), qrCompany=params.get("pointage_company");
-  if(["HAFSI","HANEN"].includes(qrCompany)){ $("spCompany").value=qrCompany; $("spCompanyHint").textContent=`QR ${qrCompany} détecté : société sélectionnée automatiquement.`; }
-  let workers=[], attendances=[];
-  async function loadWorkers(){
-    const {data,error}=await sb.from("subcontractor_workers").select("id,company,name,active").eq("active",true).order("company").order("name");
-    if(error)throw error;workers=data||[];
-    const selected=$("spWorker").value;$("spWorker").replaceChildren(new Option("Choisir un travailleur",""));
-    workers.filter(w=>!$("spCompany").value||w.company===$("spCompany").value).forEach(w=>$("spWorker").add(new Option(`${w.name} — ${w.company}`,w.id)));
-    if(workers.some(w=>w.id===selected))$("spWorker").value=selected;
+  const badgeCode=(company,n)=>`${company}-${String(n).padStart(2,"0")}`;
+  const badgeToken=(company,n)=>`IPSEN_PUNCH|${company}|${String(n).padStart(2,"0")}`;
+  const qrImg=token=>`https://quickchart.io/qr?size=260&text=${encodeURIComponent(token)}`;
+  let workers=[],events=[],scanner=null,lastDecoded="",lastDecodedAt=0;
+  function buildBadges(){
+    const all=companies.flatMap(company=>[1,2,3].map(n=>({company,n,code:badgeCode(company,n),token:badgeToken(company,n)})));
+    $("spBadgeGrid").innerHTML=all.map(b=>`<div style="border:1px solid #d8e7f7;border-radius:14px;padding:12px;background:#f8fbff;text-align:center"><strong>${b.company} — BADGE ${String(b.n).padStart(2,"0")}</strong><img src="${qrImg(b.token)}" alt="QR ${b.code}" style="display:block;width:150px;height:150px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" data-print-badge="${b.token}">🖨 Imprimer</button></div>`).join("");
+    $("spBadgeGrid").querySelectorAll("[data-print-badge]").forEach(btn=>btn.addEventListener("click",()=>printBadges(all.filter(b=>b.token===btn.dataset.printBadge))));
+    $("spPrintAllBadges").onclick=()=>printBadges(all);
   }
+  function printBadges(list){
+    const w=window.open("","_blank","width=900,height=800");if(!w){alert("Autorisez les fenêtres pop-up pour imprimer les badges.");return;}
+    const cards=list.map(b=>`<div class="badge"><h2>IPSEN LOGISTICS</h2><h3>${b.company}</h3><p>BADGE ${String(b.n).padStart(2,"0")}</p><img src="${qrImg(b.token)}"><strong>POINTAGE SOUS-TRAITANCE</strong></div>`).join("");
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Badges pointage IPSEN</title><style>body{font-family:Arial;color:#173b63;padding:16px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.badge{border:2px solid #075db5;border-radius:16px;padding:15px;text-align:center;break-inside:avoid}.badge h2{font-size:18px;margin:5px}.badge h3{margin:7px}.badge img{display:block;width:170px;height:170px;margin:8px auto}.badge p{font-weight:bold;font-size:20px}@media print{button{display:none}body{padding:0}}</style></head><body>${cards}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
+  }
+  async function loadWorkers(){
+    const {data,error}=await sb.from("subcontractor_workers").select("id,company,name,active,badge_code").eq("active",true).order("company").order("name");
+    if(error)throw error;workers=data||[];
+  }
+  function calculateDay(workerId){
+    const list=events.filter(e=>e.worker_id===workerId).sort((a,b)=>new Date(a.scanned_at)-new Date(b.scanned_at));
+    let total=0,open=null,last=null;
+    for(const e of list){last=e;if(e.event_type==="IN"){if(!open)open=new Date(e.scanned_at);}else if(open){total+=Math.max(0,new Date(e.scanned_at)-open);open=null;}}
+    if(open)total+=Math.max(0,Date.now()-open);
+    const mins=Math.floor(total/60000);
+    return {total,mins,open:!!open,last};
+  }
+  const durationMs=ms=>{const mins=Math.floor(Math.max(0,ms)/60000);return `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,"0")}min`;};
   async function refresh(){
-    $("spMsg").textContent="Chargement des pointages…";
+    $("spMsg").textContent="Chargement…";
     try{
       await loadWorkers();
-      const start=$("spDate").value||today();
-      const from=new Date(start+"T00:00:00+01:00").toISOString(),to=new Date(new Date(start+"T00:00:00+01:00").getTime()+86400000).toISOString();
-      const {data,error}=await sb.from("subcontractor_attendance").select("id,company,worker_id,entry_at,exit_at,subcontractor_workers(name)").gte("entry_at",from).lt("entry_at",to).order("entry_at",{ascending:false});
-      if(error)throw error;attendances=data||[];
-      const active=attendances.filter(x=>!x.exit_at);
+      const selectedDate=$("spDate").value||today();
+      const from=new Date(selectedDate+"T00:00:00+01:00").toISOString();
+      const to=new Date(new Date(selectedDate+"T00:00:00+01:00").getTime()+86400000).toISOString();
+      const {data,error}=await sb.from("subcontractor_punch_events").select("id,company,worker_id,event_type,scanned_at,subcontractor_workers(name,badge_code)").gte("scanned_at",from).lt("scanned_at",to).order("scanned_at");
+      if(error)throw error;events=data||[];
+      const states=workers.map(worker=>({worker,...calculateDay(worker.id)}));
+      const active=states.filter(x=>x.open);
       $("spPresent").textContent=active.length;$("spHafsi").textContent=active.filter(x=>x.company==="HAFSI").length;$("spHanen").textContent=active.filter(x=>x.company==="HANEN").length;
-      const filtered=attendances.filter(x=>!$("spFilterCompany").value||x.company===$("spFilterCompany").value);
-      $("spRows").innerHTML=filtered.map(x=>`<tr><td>${safe(x.company)}</td><td>${safe(x.subcontractor_workers?.name||"—")}</td><td>${fmt(x.entry_at)}</td><td>${fmt(x.exit_at)}</td><td>${duration(x.entry_at,x.exit_at)}</td><td><span class="badge ${x.exit_at?"badge-done":""}">${x.exit_at?"Terminé":"En cours"}</span></td></tr>`).join("")||'<tr><td colspan="6">Aucun pointage pour cette date.</td></tr>';
-      $("spCount").textContent=`${filtered.length} pointage(s) affiché(s)`;$("spMsg").textContent="";
-    }catch(e){$("spMsg").textContent="Erreur : "+(e.message||"vérifiez les tables et les droits Supabase.");}
+      const filtered=states.filter(x=>!$("spFilterCompany").value||x.company===$("spFilterCompany").value).filter(x=>x.last||$("spDate").value===today());
+      $("spRows").innerHTML=filtered.map(x=>`<tr><td>${safe(x.company)}</td><td>${safe(x.badge_code||x.name)}</td><td>${safe(x.name)}</td><td>${x.last?fmt(x.last.scanned_at)+" — "+(x.last.event_type==="IN"?"Entré":"Sorti"):"—"}</td><td>${durationMs(x.total)}</td><td><span class="badge ${x.open?"badge-done":""}">${x.open?"Présent":"Absent"}</span></td></tr>`).join("")||'<tr><td colspan="6">Aucun pointage pour cette date.</td></tr>';
+      $("spCount").textContent=`${filtered.length} chauffeur(s) affiché(s)`;$("spMsg").textContent="";
+    }catch(e){$("spMsg").textContent="Erreur : "+(e.message||"Vérifiez les tables Supabase. Exécutez le SQL Pointage v2.");}
   }
-  $("spCompany").addEventListener("change",loadWorkers);
-  $("spDate").value=today();$("spDate").addEventListener("change",refresh);$("spFilterCompany").addEventListener("change",refresh);$("spRefresh").addEventListener("click",refresh);
-  $("spAddWorker").addEventListener("click",async()=>{
-    const name=$("spNewName").value.trim().replace(/\s+/g," "),company=$("spCompany").value;
-    if(!company){$("spWorkerMsg").textContent="Scannez le QR de HAFSI ou HANEN avant d'ajouter un chauffeur.";return;}
-    if(!name){$("spWorkerMsg").textContent="Saisissez le nom et prénom du nouveau chauffeur.";return;}
-    const existing=workers.find(w=>w.company===company&&w.name.toLocaleLowerCase("fr")===name.toLocaleLowerCase("fr"));
-    if(existing){$("spWorker").value=existing.id;$("spNewName").value="";$("spWorkerMsg").textContent="Ce chauffeur existe déjà : il a été sélectionné dans la liste.";return;}
-    $("spAddWorker").disabled=true;
+  async function processBadge(token){
+    const match=/^IPSEN_PUNCH\|(HAFSI|HANEN)\|(0[1-3])$/.exec(token);
+    if(!match){$("spMsg").textContent="QR non reconnu. Présentez un badge HAFSI ou HANEN valide.";return;}
+    const [,company,num]=match,code=badgeCode(company,Number(num));
     try{
-      const {data,error}=await sb.from("subcontractor_workers").insert({name,company,active:true}).select("id,company,name,active").single();
-      if(error)throw error;
-      workers.push(data);workers.sort((a,b)=>a.company.localeCompare(b.company)||a.name.localeCompare(b.name,"fr"));
-      await loadWorkers();$("spWorker").value=data.id;$("spNewName").value="";
-      $("spWorkerMsg").textContent=`${name} enregistré(e) chez ${company} et sélectionné(e). Il/elle sera disponible dans la liste aux prochaines visites.`;
-    }catch(error){$("spWorkerMsg").textContent="Impossible d'enregistrer le chauffeur : "+(error.message||"erreur Supabase");}
-    finally{$("spAddWorker").disabled=false;}
-  });
-  async function punch(kind){
-    const company=$("spCompany").value,workerId=$("spWorker").value;
-    if(!company||!workerId){$("spMsg").textContent="Scannez le QR de la société puis choisissez le travailleur.";return;}
-    const worker=workers.find(w=>w.id===workerId);if(!worker||worker.company!==company){$("spMsg").textContent="Le travailleur ne correspond pas à la société sélectionnée.";return;}
-    $("spEntry").disabled=$("spExit").disabled=true;
-    try{
-      const {data:openRows,error:readError}=await sb.from("subcontractor_attendance").select("id").eq("worker_id",workerId).is("exit_at",null).limit(1);
+      if(!workers.length)await loadWorkers();
+      let worker=workers.find(x=>x.badge_code===code);
+      if(!worker){$("spMsg").textContent=`Le badge ${code} n'est pas encore initialisé. Exécutez le SQL Pointage v2 dans Supabase.`;return;}
+      const selectedDate=today();
+      const from=new Date(selectedDate+"T00:00:00+01:00").toISOString();
+      const to=new Date(new Date(selectedDate+"T00:00:00+01:00").getTime()+86400000).toISOString();
+      const {data:dayEvents,error:readError}=await sb.from("subcontractor_punch_events").select("event_type,scanned_at").eq("worker_id",worker.id).gte("scanned_at",from).lt("scanned_at",to).order("scanned_at",{ascending:false}).limit(1);
       if(readError)throw readError;
-      if(kind==="entry"){
-        if(openRows?.length){$("spMsg").textContent="Ce travailleur a déjà un pointage ouvert.";return;}
-        const {error}=await sb.from("subcontractor_attendance").insert({company,worker_id:workerId,entry_at:new Date().toISOString(),created_by:user.id});
-        if(error)throw error;$("spMsg").textContent=`Entrée enregistrée pour ${worker.name}.`;
-      }else{
-        if(!openRows?.length){$("spMsg").textContent="Aucune entrée en cours pour ce travailleur.";return;}
-        const {error}=await sb.from("subcontractor_attendance").update({exit_at:new Date().toISOString()}).eq("id",openRows[0].id).is("exit_at",null);
-        if(error)throw error;$("spMsg").textContent=`Sortie enregistrée pour ${worker.name}.`;
-      }
+      const nextType=dayEvents?.[0]?.event_type==="IN"?"OUT":"IN";
+      const {error}=await sb.from("subcontractor_punch_events").insert({company,worker_id:worker.id,event_type:nextType,scanned_at:new Date().toISOString(),created_by:user.id});
+      if(error)throw error;
+      const label=nextType==="IN"?"ENTRÉE enregistrée":"SORTIE enregistrée";
+      $("spLastScan").style.display="block";$("spLastScan").textContent=`${label} — ${worker.name} (${company} / Badge ${num})`;
+      $("spMsg").textContent=`${label} à ${fmt(new Date().toISOString())}.`;
       await refresh();
-    }catch(e){$("spMsg").textContent="Erreur de pointage : "+(e.message||"vérifiez Supabase.");}
-    finally{$("spEntry").disabled=$("spExit").disabled=false;}
+    }catch(e){$("spMsg").textContent="Erreur de pointage : "+(e.message||"Vérifiez Supabase.");}
   }
-  $("spEntry").addEventListener("click",()=>punch("entry"));$("spExit").addEventListener("click",()=>punch("exit"));
-  $("spExport").addEventListener("click",()=>{
-    const rows=attendances.filter(x=>!$("spFilterCompany").value||x.company===$("spFilterCompany").value).map(x=>({Société:x.company,Travailleur:x.subcontractor_workers?.name||"",Entrée:fmt(x.entry_at),Sortie:fmt(x.exit_at),Durée:duration(x.entry_at,x.exit_at),Statut:x.exit_at?"Terminé":"En cours"}));
-    if(!rows.length){alert("Aucun pointage à exporter.");return;}const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Pointage");XLSX.writeFile(wb,`Pointage_sous_traitance_${$("spDate").value}.xlsx`);
+  async function stopScanner(){if(scanner){try{await scanner.stop();}catch(e){}try{scanner.clear();}catch(e){}scanner=null;}$("spScannerPanel").classList.add("hide");}
+  $("spStartScanner").addEventListener("click",async()=>{
+    if(!window.Html5Qrcode){$("spScannerPanel").classList.remove("hide");$("spScannerMsg").textContent="Impossible de charger le lecteur QR. Actualisez la page.";return;}
+    $("spScannerPanel").classList.remove("hide");$("spScannerMsg").textContent="Démarrage de la caméra…";
+    try{
+      if(scanner)await stopScanner();scanner=new Html5Qrcode("spQrReader");
+      await scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:230,height:230}},async decoded=>{
+        const now=Date.now();if(decoded===lastDecoded&&now-lastDecodedAt<2500)return;lastDecoded=decoded;lastDecodedAt=now;
+        $("spScannerMsg").textContent="Badge lu. Enregistrement…";await stopScanner();await processBadge(String(decoded||"").trim());
+      },()=>{});
+      $("spScannerMsg").textContent="Caméra active : présentez le badge devant la caméra.";
+    }catch(e){scanner=null;$("spScannerMsg").textContent="Impossible d'ouvrir la caméra : "+(e.message||e)+". Autorisez la caméra et utilisez le site en HTTPS.";}
   });
-  await refresh();
+  $("spStopScanner").addEventListener("click",stopScanner);
+  $("spDate").value=today();$("spDate").addEventListener("change",refresh);$("spFilterCompany").addEventListener("change",refresh);$("spRefresh").addEventListener("click",refresh);
+  $("spExport").addEventListener("click",()=>{
+    const selected=$("spDate").value||today();
+    const rows=workers.filter(w=>!$("spFilterCompany").value||w.company===$("spFilterCompany").value).map(w=>{const c=calculateDay(w.id);return {Societe:w.company,Badge:w.badge_code,Chauffeur:w.name,Dernier_scan:c.last?fmt(c.last.scanned_at):"",Derniere_operation:c.last?.event_type==="IN"?"Entrée":"Sortie",Heures_travaillees:durationMs(c.total),Situation:c.open?"Présent":"Absent"};});
+    if(!rows.length){alert("Aucun pointage à exporter.");return;}const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Pointage");XLSX.writeFile(wb,`Pointage_sous_traitance_${selected}.xlsx`);
+  });
+  buildBadges();await refresh();
 }
 
 
