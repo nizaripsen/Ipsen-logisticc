@@ -1178,10 +1178,6 @@ async function addSubcontractorPointageModule(parent, user) {
       <div class="stat"><div class="stat-label">HAFSI en cours</div><div class="stat-value" id="spHafsi">—</div></div>
       <div class="stat"><div class="stat-label">HANEN en cours</div><div class="stat-value" id="spHanen">—</div></div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0">
-      <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HAFSI</h3><img id="spQrHafsi" alt="QR HAFSI" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHafsi">🖨 Imprimer QR HAFSI</button></div>
-      <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HANEN</h3><img id="spQrHanen" alt="QR HANEN" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHanen">🖨 Imprimer QR HANEN</button></div>
-    </div>
     <div style="background:#f0f7ff;border:1px solid #bfdbfe;padding:16px;border-radius:14px;margin:16px 0">
       <h3>Enregistrer un pointage</h3>
       <p id="spCompanyHint">Scannez le QR de la société pour la sélectionner automatiquement.</p>
@@ -1200,7 +1196,14 @@ async function addSubcontractorPointageModule(parent, user) {
     <h3>Pointages du jour</h3>
     <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button></div>
     <div class="table-wrap"><table><thead><tr><th>Société</th><th>Travailleur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th></tr></thead><tbody id="spRows"><tr><td colspan="6">Chargement…</td></tr></tbody></table></div>
-    <p id="spCount"></p>`;
+    <p id="spCount"></p>
+    <div style="border-top:2px solid #d8e7f7;padding-top:20px;margin-top:24px">
+      <h3>QR Codes des sociétés — à imprimer et garder au bureau</h3>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0">
+        <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HAFSI</h3><img id="spQrHafsi" alt="QR HAFSI" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHafsi">🖨 Imprimer QR HAFSI</button></div>
+        <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HANEN</h3><img id="spQrHanen" alt="QR HANEN" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHanen">🖨 Imprimer QR HANEN</button></div>
+      </div>
+    </div>`;
   parent.appendChild(section);
   const $=id=>section.querySelector("#"+id);
   const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
