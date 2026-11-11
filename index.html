@@ -674,7 +674,7 @@ function wrapEscaleActions(actionCell, menuLabel = "⚙ Actions") {
 function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
   panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${(admin||staff)?'<a id="containerTrackingLink" href="https://smatinizar528.github.io/IPSEN-Container-Tracking/" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#075db5;color:#fff;text-decoration:none;border-radius:14px;padding:15px 18px;min-height:58px;font-size:clamp(14px,1.7vw,18px);font-weight:800;box-shadow:0 3px 9px #0b47741a">🚛 Suivi des conteneurs</a>':''}${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button><button id="manageAccountsBtn" type="button" class="btn-amber">👤 Créer un compte</button><button id="managePasswordsBtn" type="button" class="btn-light">🔑 Gérer les mots de passe</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button><button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
+  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button><button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showSubcontractorPointageSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🕒<br>Pointage sous-traitance</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
   <div id="stockManagementView" class="${admin?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
@@ -701,6 +701,7 @@ async function loadPortal(user, profile) {
     form.style.display = "block"; await sb.auth.signOut(); return;
   }
   const panel = makePanel(isAdmin ? "Dashboard Admin" : (isStaff ? "Espace interne — consultation seule" : "Espace Client"), isAdmin, isStaff);
+  if (isStaff) panel.querySelector("#showSubcontractorPointageSection")?.remove();
 
   const stats = panel.querySelector("#stats");
   let clients = [], records = [];
@@ -1129,6 +1130,7 @@ async function loadPortal(user, profile) {
   await redraw();
   await addInteriorStockModule(panel, profile, isAdmin, isStaff);
   if (isAdmin || isStaff) await addInventoryReminderModule(panel, clientNames);
+  if (isAdmin) await addSubcontractorPointageModule(panel, user);
   if (isAdmin || isStaff) {
     await addContainerModule(panel, clients, isStaff);
     if (isAdmin) {
@@ -1138,7 +1140,7 @@ async function loadPortal(user, profile) {
     const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection"), bonsBtn=panel.querySelector("#showReturnBonsSection");
     const containersView=panel.querySelector("#containerManagementView");
     const showSection=(which)=>{
-      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders";
+      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders", showPointage=which==="pointage";
       stockView?.classList.toggle("hide",!showStock);
       panel.querySelector("#interiorStockManagementView")?.classList.toggle("hide",!showInterior);
       containersView?.classList.toggle("hide",!(showContainers||showBons));
@@ -1146,7 +1148,8 @@ async function loadPortal(user, profile) {
       containersView?.querySelector("#returnBonsSection")?.classList.toggle("hide",!showBons);
       panel.querySelector("#refreshRequests")?.closest("section")?.classList.toggle("hide",!showRequests);
       panel.querySelector("#inventoryReminderSection")?.classList.toggle("hide",!showInventoryReminders);
-      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
+      panel.querySelector("#subcontractorPointageSection")?.classList.toggle("hide",!showPointage);
+      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
       if(!showContainers){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
@@ -1155,8 +1158,130 @@ async function loadPortal(user, profile) {
     bonsBtn?.addEventListener("click",()=>showSection("bons"));
     panel.querySelector("#showExitRequestsSection")?.addEventListener("click",()=>showSection("requests"));
     panel.querySelector("#showInventoryReminderSection")?.addEventListener("click",()=>showSection("inventoryReminders"));
+    panel.querySelector("#showSubcontractorPointageSection")?.addEventListener("click",()=>showSection("pointage"));
+    if (new URLSearchParams(location.search).has("pointage_company")) panel.querySelector("#showSubcontractorPointageSection")?.click();
     // À l'ouverture, aucune donnée n'est affichée avant le choix de l'utilisateur.
   }
+}
+
+
+
+async function addSubcontractorPointageModule(parent, user) {
+  const section=document.createElement("section");
+  section.id="subcontractorPointageSection";
+  section.className="card hide";
+  section.style.marginTop="20px";
+  section.innerHTML=`
+    <div class="toolbar"><div><h1>🕒 Pointage sous-traitance</h1><p>Pointage des chauffeurs HAFSI et HANEN par QR Code — heure enregistrée automatiquement.</p></div></div>
+    <div class="stats-grid">
+      <div class="stat"><div class="stat-label">Présents actuellement</div><div class="stat-value" id="spPresent">—</div></div>
+      <div class="stat"><div class="stat-label">HAFSI en cours</div><div class="stat-value" id="spHafsi">—</div></div>
+      <div class="stat"><div class="stat-label">HANEN en cours</div><div class="stat-value" id="spHanen">—</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;margin:16px 0">
+      <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HAFSI</h3><img id="spQrHafsi" alt="QR HAFSI" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHafsi">🖨 Imprimer QR HAFSI</button></div>
+      <div style="border:1px solid #d8e7f7;border-radius:14px;padding:15px;background:#f8fbff"><h3>QR HANEN</h3><img id="spQrHanen" alt="QR HANEN" style="display:block;width:170px;height:170px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" id="spPrintHanen">🖨 Imprimer QR HANEN</button></div>
+    </div>
+    <div style="background:#f0f7ff;border:1px solid #bfdbfe;padding:16px;border-radius:14px;margin:16px 0">
+      <h3>Enregistrer un pointage</h3>
+      <p id="spCompanyHint">Scannez le QR de la société pour la sélectionner automatiquement.</p>
+      <div class="form-grid">
+        <div><label for="spCompany">Société</label><select id="spCompany"><option value="">Choisir HAFSI ou HANEN</option><option value="HAFSI">HAFSI</option><option value="HANEN">HANEN</option></select></div>
+        <div><label for="spWorker">Chauffeur / travailleur déjà enregistré</label><select id="spWorker"><option value="">Choisir dans la liste</option></select></div>
+      </div>
+      <div style="background:#fffaf0;border:1px solid #fed7aa;padding:14px;border-radius:12px;margin:12px 0">
+        <label for="spNewName">Nouveau chauffeur (uniquement s'il n'existe pas dans la liste)</label>
+        <div class="form-grid"><div><input id="spNewName" placeholder="Saisir le nom et prénom du chauffeur" autocomplete="off"></div><div style="display:flex;align-items:end"><button type="button" class="btn-light" id="spAddWorker" style="width:100%">＋ Enregistrer ce chauffeur</button></div></div>
+        <p id="spWorkerMsg" role="status" aria-live="polite">Le chauffeur sera enregistré dans la société sélectionnée et disponible dans la liste pour les prochaines fois.</p>
+      </div>
+      <div class="form-actions"><button type="button" class="btn-green" id="spEntry">🟢 ENTRÉE</button><button type="button" class="btn-amber" id="spExit">🔴 SORTIE</button><button type="button" class="btn-light" id="spRefresh">↻ Actualiser</button></div>
+      <p id="spMsg" role="status" aria-live="polite"></p>
+    </div>
+    <h3>Pointages du jour</h3>
+    <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button></div>
+    <div class="table-wrap"><table><thead><tr><th>Société</th><th>Travailleur</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th></tr></thead><tbody id="spRows"><tr><td colspan="6">Chargement…</td></tr></tbody></table></div>
+    <p id="spCount"></p>`;
+  parent.appendChild(section);
+  const $=id=>section.querySelector("#"+id);
+  const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+  const dateKey=v=>v?new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(v)):"";
+  const fmt=v=>v?new Date(v).toLocaleTimeString("fr-FR",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit"}):"—";
+  const duration=(a,b)=>{if(!a)return "—";const mins=Math.max(0,Math.round(((b?new Date(b):new Date())-new Date(a))/60000));return `${Math.floor(mins/60)}h ${String(mins%60).padStart(2,"0")}min`;};
+  const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const qrUrl=company=>{const u=new URL(location.href);u.searchParams.set("pointage_company",company);return "https://quickchart.io/qr?size=260&text="+encodeURIComponent(u.toString());};
+  $("spQrHafsi").src=qrUrl("HAFSI"); $("spQrHanen").src=qrUrl("HANEN");
+  function printQr(company){const url=qrUrl(company);const w=window.open("","_blank","width=600,height=700");if(!w){alert("Autorisez les fenêtres pop-up.");return;}w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${company} - IPSEN</title><style>body{font-family:Arial;text-align:center;padding:35px;color:#173b63}img{width:280px;height:280px}h1{font-size:30px}</style></head><body><h1>IPSEN LOGISTICS</h1><h2>POINTAGE — ${company}</h2><img src="${url}"><p>Scanner ce QR Code au bureau IPSEN</p><script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();}
+  $("spPrintHafsi").addEventListener("click",()=>printQr("HAFSI")); $("spPrintHanen").addEventListener("click",()=>printQr("HANEN"));
+  const params=new URLSearchParams(location.search), qrCompany=params.get("pointage_company");
+  if(["HAFSI","HANEN"].includes(qrCompany)){ $("spCompany").value=qrCompany; $("spCompanyHint").textContent=`QR ${qrCompany} détecté : société sélectionnée automatiquement.`; }
+  let workers=[], attendances=[];
+  async function loadWorkers(){
+    const {data,error}=await sb.from("subcontractor_workers").select("id,company,name,active").eq("active",true).order("company").order("name");
+    if(error)throw error;workers=data||[];
+    const selected=$("spWorker").value;$("spWorker").replaceChildren(new Option("Choisir un travailleur",""));
+    workers.filter(w=>!$("spCompany").value||w.company===$("spCompany").value).forEach(w=>$("spWorker").add(new Option(`${w.name} — ${w.company}`,w.id)));
+    if(workers.some(w=>w.id===selected))$("spWorker").value=selected;
+  }
+  async function refresh(){
+    $("spMsg").textContent="Chargement des pointages…";
+    try{
+      await loadWorkers();
+      const start=$("spDate").value||today();
+      const from=new Date(start+"T00:00:00+01:00").toISOString(),to=new Date(new Date(start+"T00:00:00+01:00").getTime()+86400000).toISOString();
+      const {data,error}=await sb.from("subcontractor_attendance").select("id,company,worker_id,entry_at,exit_at,subcontractor_workers(name)").gte("entry_at",from).lt("entry_at",to).order("entry_at",{ascending:false});
+      if(error)throw error;attendances=data||[];
+      const active=attendances.filter(x=>!x.exit_at);
+      $("spPresent").textContent=active.length;$("spHafsi").textContent=active.filter(x=>x.company==="HAFSI").length;$("spHanen").textContent=active.filter(x=>x.company==="HANEN").length;
+      const filtered=attendances.filter(x=>!$("spFilterCompany").value||x.company===$("spFilterCompany").value);
+      $("spRows").innerHTML=filtered.map(x=>`<tr><td>${safe(x.company)}</td><td>${safe(x.subcontractor_workers?.name||"—")}</td><td>${fmt(x.entry_at)}</td><td>${fmt(x.exit_at)}</td><td>${duration(x.entry_at,x.exit_at)}</td><td><span class="badge ${x.exit_at?"badge-done":""}">${x.exit_at?"Terminé":"En cours"}</span></td></tr>`).join("")||'<tr><td colspan="6">Aucun pointage pour cette date.</td></tr>';
+      $("spCount").textContent=`${filtered.length} pointage(s) affiché(s)`;$("spMsg").textContent="";
+    }catch(e){$("spMsg").textContent="Erreur : "+(e.message||"vérifiez les tables et les droits Supabase.");}
+  }
+  $("spCompany").addEventListener("change",loadWorkers);
+  $("spDate").value=today();$("spDate").addEventListener("change",refresh);$("spFilterCompany").addEventListener("change",refresh);$("spRefresh").addEventListener("click",refresh);
+  $("spAddWorker").addEventListener("click",async()=>{
+    const name=$("spNewName").value.trim().replace(/\s+/g," "),company=$("spCompany").value;
+    if(!company){$("spWorkerMsg").textContent="Scannez le QR de HAFSI ou HANEN avant d'ajouter un chauffeur.";return;}
+    if(!name){$("spWorkerMsg").textContent="Saisissez le nom et prénom du nouveau chauffeur.";return;}
+    const existing=workers.find(w=>w.company===company&&w.name.toLocaleLowerCase("fr")===name.toLocaleLowerCase("fr"));
+    if(existing){$("spWorker").value=existing.id;$("spNewName").value="";$("spWorkerMsg").textContent="Ce chauffeur existe déjà : il a été sélectionné dans la liste.";return;}
+    $("spAddWorker").disabled=true;
+    try{
+      const {data,error}=await sb.from("subcontractor_workers").insert({name,company,active:true}).select("id,company,name,active").single();
+      if(error)throw error;
+      workers.push(data);workers.sort((a,b)=>a.company.localeCompare(b.company)||a.name.localeCompare(b.name,"fr"));
+      await loadWorkers();$("spWorker").value=data.id;$("spNewName").value="";
+      $("spWorkerMsg").textContent=`${name} enregistré(e) chez ${company} et sélectionné(e). Il/elle sera disponible dans la liste aux prochaines visites.`;
+    }catch(error){$("spWorkerMsg").textContent="Impossible d'enregistrer le chauffeur : "+(error.message||"erreur Supabase");}
+    finally{$("spAddWorker").disabled=false;}
+  });
+  async function punch(kind){
+    const company=$("spCompany").value,workerId=$("spWorker").value;
+    if(!company||!workerId){$("spMsg").textContent="Scannez le QR de la société puis choisissez le travailleur.";return;}
+    const worker=workers.find(w=>w.id===workerId);if(!worker||worker.company!==company){$("spMsg").textContent="Le travailleur ne correspond pas à la société sélectionnée.";return;}
+    $("spEntry").disabled=$("spExit").disabled=true;
+    try{
+      const {data:openRows,error:readError}=await sb.from("subcontractor_attendance").select("id").eq("worker_id",workerId).is("exit_at",null).limit(1);
+      if(readError)throw readError;
+      if(kind==="entry"){
+        if(openRows?.length){$("spMsg").textContent="Ce travailleur a déjà un pointage ouvert.";return;}
+        const {error}=await sb.from("subcontractor_attendance").insert({company,worker_id:workerId,entry_at:new Date().toISOString(),created_by:user.id});
+        if(error)throw error;$("spMsg").textContent=`Entrée enregistrée pour ${worker.name}.`;
+      }else{
+        if(!openRows?.length){$("spMsg").textContent="Aucune entrée en cours pour ce travailleur.";return;}
+        const {error}=await sb.from("subcontractor_attendance").update({exit_at:new Date().toISOString()}).eq("id",openRows[0].id).is("exit_at",null);
+        if(error)throw error;$("spMsg").textContent=`Sortie enregistrée pour ${worker.name}.`;
+      }
+      await refresh();
+    }catch(e){$("spMsg").textContent="Erreur de pointage : "+(e.message||"vérifiez Supabase.");}
+    finally{$("spEntry").disabled=$("spExit").disabled=false;}
+  }
+  $("spEntry").addEventListener("click",()=>punch("entry"));$("spExit").addEventListener("click",()=>punch("exit"));
+  $("spExport").addEventListener("click",()=>{
+    const rows=attendances.filter(x=>!$("spFilterCompany").value||x.company===$("spFilterCompany").value).map(x=>({Société:x.company,Travailleur:x.subcontractor_workers?.name||"",Entrée:fmt(x.entry_at),Sortie:fmt(x.exit_at),Durée:duration(x.entry_at,x.exit_at),Statut:x.exit_at?"Terminé":"En cours"}));
+    if(!rows.length){alert("Aucun pointage à exporter.");return;}const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Pointage");XLSX.writeFile(wb,`Pointage_sous_traitance_${$("spDate").value}.xlsx`);
+  });
+  await refresh();
 }
 
 
