@@ -2251,13 +2251,28 @@ async function addContainerModule(parent, clients, readOnly=false) {
     if(!["oui","non"].includes(damageIn.trim().toLowerCase())){alert("Indiquez Oui ou Non pour les dégâts à l'entrée.");return;}
     const truckIn=ask("Matricule camion / transporteur à l'entrée :",movement.truck_registration||"");
     if(truckIn===null)return;
-    let damageOut=movement.exit_has_damage, truckOut=movement.exit_truck_registration;
+    let damageOut=movement.exit_has_damage, truckOut=movement.exit_truck_registration, exitDate=movement.exit_at;
     if(movement.exit_at){
       damageOut=ask("Dégâts à la sortie (Oui/Non) :",movement.exit_has_damage||"Non");
       if(damageOut===null)return;
       if(!["oui","non"].includes(damageOut.trim().toLowerCase())){alert("Indiquez Oui ou Non pour les dégâts à la sortie.");return;}
       truckOut=ask("Matricule camion / transporteur à la sortie :",movement.exit_truck_registration||"");
       if(truckOut===null)return;
+      const currentExitDate=tunisDateKey(movement.exit_at);
+      const dateOut=ask("Date de sortie (AAAA-MM-JJ) :",currentExitDate);
+      if(dateOut===null)return;
+      const cleanExitDate=dateOut.trim();
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(cleanExitDate) || Number.isNaN(Date.parse(cleanExitDate+"T12:00:00"))){
+        alert("Date invalide. Utilisez le format AAAA-MM-JJ, par exemple 2026-11-11.");return;
+      }
+      const [year,month,day]=cleanExitDate.split("-").map(Number);
+      const checkDate=new Date(Date.UTC(year,month-1,day));
+      if(checkDate.getUTCFullYear()!==year || checkDate.getUTCMonth()!==month-1 || checkDate.getUTCDate()!==day){
+        alert("Date invalide. Vérifiez le jour, le mois et l'année.");return;
+      }
+      const timeParts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(movement.exit_at));
+      const part=type=>timeParts.find(item=>item.type===type)?.value||"00";
+      exitDate=new Date(`${cleanExitDate}T${part("hour")}:${part("minute")}:${part("second")}+01:00`).toISOString();
     }
     if(!window.confirm("Enregistrer les corrections de ce mouvement ?"))return;
     button.disabled=true;button.textContent="Enregistrement…";el("cMsg").textContent="Mise à jour du mouvement…";
@@ -2266,6 +2281,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
       if(movement.exit_at){
         changes.exit_has_damage=damageOut.trim().toLowerCase()==="oui"?"Oui":"Non";
         changes.exit_truck_registration=truckOut.trim()||null;
+        changes.exit_at=exitDate;
       }
       const {error}=await sb.from("container_movements").update(changes).eq("id",movement.id);
       if(error)throw error;
