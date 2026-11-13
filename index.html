@@ -1191,15 +1191,10 @@ async function addSubcontractorPointageModule(parent, user) {
       <p id="spMsg" role="status" aria-live="polite"></p>
     </div>
     <h3>Historique des pointages</h3>
-    <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button><button type="button" class="btn-amber" id="spStopWork">⏹ Arrêter le travail</button><button type="button" class="btn-red" id="spClearHistory">🗑 Vider tout l’historique</button></div>
+    <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button><button type="button" class="btn-amber" id="spStopWork">⏹ Arrêter le travail</button><button type="button" class="btn-red" id="spClearHistory">🗑 Vider l’historique du jour sélectionné</button></div>
     <div class="table-wrap"><table><thead><tr><th>Société</th><th>Chauffeur</th><th>Dernier scan</th><th>Heures travaillées</th><th>Situation</th></tr></thead><tbody id="spRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div>
     <p id="spCount"></p>
-    <div style="border-top:2px solid #d8e7f7;padding-top:20px;margin-top:24px">
-      <h3>Badges QR à imprimer — 3 par société</h3>
-      <p>Les badges sont numérotés. Vous pourrez ajouter les noms des chauffeurs plus tard. Chaque badge est individuel et unique.</p>
-      <div id="spBadgeGrid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:16px 0"></div>
-      <button type="button" class="btn-light" id="spPrintAllBadges">🖨 Imprimer les 6 badges</button>
-    </div>`;
+`;
   parent.appendChild(section);
   const $=id=>section.querySelector("#"+id);
   const companies=["HAFSI","HANEN"];
@@ -1208,20 +1203,7 @@ async function addSubcontractorPointageModule(parent, user) {
   const fmt=v=>v?new Date(v).toLocaleTimeString("fr-FR",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit"}):"—";
   const safe=v=>String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const badgeCode=(company,n)=>`${company}-${String(n).padStart(2,"0")}`;
-  const badgeToken=(company,n)=>`IPSEN_PUNCH|${company}|${String(n).padStart(2,"0")}`;
-  const qrImg=token=>`https://quickchart.io/qr?size=260&text=${encodeURIComponent(token)}`;
   let workers=[],events=[],scanner=null,lastDecoded="",lastDecodedAt=0;
-  function buildBadges(){
-    const all=companies.flatMap(company=>[1,2,3].map(n=>({company,n,code:badgeCode(company,n),token:badgeToken(company,n)})));
-    $("spBadgeGrid").innerHTML=all.map(b=>`<div style="border:1px solid #d8e7f7;border-radius:14px;padding:12px;background:#f8fbff;text-align:center"><strong>${b.company} — BADGE ${String(b.n).padStart(2,"0")}</strong><img src="${qrImg(b.token)}" alt="QR ${b.code}" style="display:block;width:150px;height:150px;max-width:100%;margin:8px auto"><button type="button" class="btn-light" data-print-badge="${b.token}">🖨 Imprimer</button></div>`).join("");
-    $("spBadgeGrid").querySelectorAll("[data-print-badge]").forEach(btn=>btn.addEventListener("click",()=>printBadges(all.filter(b=>b.token===btn.dataset.printBadge))));
-    $("spPrintAllBadges").onclick=()=>printBadges(all);
-  }
-  function printBadges(list){
-    const w=window.open("","_blank","width=900,height=800");if(!w){alert("Autorisez les fenêtres pop-up pour imprimer les badges.");return;}
-    const cards=list.map(b=>`<div class="badge"><h2>IPSEN LOGISTICS</h2><h3>${b.company}</h3><p>BADGE ${String(b.n).padStart(2,"0")}</p><img src="${qrImg(b.token)}"><strong>POINTAGE SOUS-TRAITANCE</strong></div>`).join("");
-    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Badges pointage IPSEN</title><style>body{font-family:Arial;color:#173b63;padding:16px;display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.badge{border:2px solid #075db5;border-radius:16px;padding:15px;text-align:center;break-inside:avoid}.badge h2{font-size:18px;margin:5px}.badge h3{margin:7px}.badge img{display:block;width:170px;height:170px;margin:8px auto}.badge p{font-weight:bold;font-size:20px}@media print{button{display:none}body{padding:0}}</style></head><body>${cards}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();
-  }
   async function loadWorkers(){
     const {data,error}=await sb.from("subcontractor_workers").select("id,company,name,active,badge_code").eq("active",true).order("company").order("name");
     if(error)throw error;workers=data||[];
@@ -1318,15 +1300,19 @@ async function addSubcontractorPointageModule(parent, user) {
     finally{btn.disabled=false;}
   });
   $("spClearHistory").addEventListener("click",async()=>{
-    if(!confirm("ATTENTION : cette action supprimera définitivement TOUS les enregistrements de pointage (toutes les dates et toutes les sociétés). Les chauffeurs et leurs badges seront conservés. Continuer ?"))return;
-    if(!confirm("Dernière confirmation : effacer tout l’historique des pointages ? Cette action est irréversible."))return;
+    const selectedDate=$("spDate").value||today();
+    if(!selectedDate){$("spMsg").textContent="Choisissez une date dans le filtre avant de vider l’historique.";return;}
+    if(!confirm(`Effacer uniquement les pointages du ${selectedDate} pour HAFSI et HANEN ? Les autres dates, les chauffeurs et les badges enregistrés dans Supabase seront conservés.`))return;
+    if(!confirm(`Confirmation : supprimer les pointages du ${selectedDate} seulement ? Cette action est irréversible.`))return;
     const btn=$("spClearHistory");btn.disabled=true;
     try{
-      const {error}=await sb.from("subcontractor_punch_events").delete().not("id","is",null);
+      const from=new Date(selectedDate+"T00:00:00+01:00").toISOString();
+      const to=new Date(new Date(selectedDate+"T00:00:00+01:00").getTime()+86400000).toISOString();
+      const {error}=await sb.from("subcontractor_punch_events").delete().gte("scanned_at",from).lt("scanned_at",to);
       if(error)throw error;
-      $("spMsg").textContent="Tout l’historique des pointages a été supprimé.";
+      $("spMsg").textContent=`Historique du ${selectedDate} supprimé. Les autres dates et les badges sont conservés dans Supabase.`;
       await refresh();
-    }catch(e){$("spMsg").textContent="Impossible d’effacer l’historique : "+(e.message||"Vérifiez les autorisations Supabase.");}
+    }catch(e){$("spMsg").textContent="Impossible d’effacer l’historique du jour sélectionné : "+(e.message||"Vérifiez les autorisations Supabase.");}
     finally{btn.disabled=false;}
   });
   $("spDate").value=today();$("spDate").addEventListener("change",refresh);$("spFilterCompany").addEventListener("change",refresh);$("spRefresh").addEventListener("click",refresh);
@@ -1335,7 +1321,7 @@ async function addSubcontractorPointageModule(parent, user) {
     const rows=workers.filter(w=>!$("spFilterCompany").value||w.company===$("spFilterCompany").value).map(w=>{const c=calculateDay(w.id);return {Societe:w.company,Chauffeur:w.name,Dernier_scan:c.last?fmt(c.last.scanned_at):"",Derniere_operation:c.last?.event_type==="IN"?"Entrée":"Sortie",Heures_travaillees:durationMs(c.total),Situation:c.open?"Présent":"Absent"};});
     if(!rows.length){alert("Aucun pointage à exporter.");return;}const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),"Pointage");XLSX.writeFile(wb,`Pointage_sous_traitance_${selected}.xlsx`);
   });
-  buildBadges();await refresh();
+  await refresh();
 }
 
 
