@@ -1191,7 +1191,7 @@ async function addSubcontractorPointageModule(parent, user) {
       <p id="spMsg" role="status" aria-live="polite"></p>
     </div>
     <h3>Historique des pointages</h3>
-    <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button></div>
+    <div class="filters"><input id="spDate" type="date"><select id="spFilterCompany"><option value="">Toutes les sociétés</option><option>HAFSI</option><option>HANEN</option></select><button type="button" class="btn-light" id="spExport">📥 Export Excel</button><button type="button" class="btn-amber" id="spStopWork">⏹ Arrêter le travail</button><button type="button" class="btn-red" id="spClearHistory">🗑 Vider tout l’historique</button></div>
     <div class="table-wrap"><table><thead><tr><th>Société</th><th>Chauffeur</th><th>Dernier scan</th><th>Heures travaillées</th><th>Situation</th></tr></thead><tbody id="spRows"><tr><td colspan="5">Chargement…</td></tr></tbody></table></div>
     <p id="spCount"></p>
     <div style="border-top:2px solid #d8e7f7;padding-top:20px;margin-top:24px">
@@ -1294,6 +1294,41 @@ async function addSubcontractorPointageModule(parent, user) {
     }catch(e){scanner=null;$("spScannerMsg").textContent="Impossible d'ouvrir la caméra : "+(e.message||e)+". Autorisez la caméra et utilisez le site en HTTPS.";}
   });
   $("spStopScanner").addEventListener("click",stopScanner);
+  $("spStopWork").addEventListener("click",async()=>{
+    if(!confirm("Confirmer l’arrêt du travail ? Une sortie sera enregistrée maintenant pour chaque chauffeur encore présent aujourd’hui."))return;
+    const btn=$("spStopWork");btn.disabled=true;
+    try{
+      await loadWorkers();
+      const day=today();
+      const from=new Date(day+"T00:00:00+01:00").toISOString();
+      const to=new Date(new Date(day+"T00:00:00+01:00").getTime()+86400000).toISOString();
+      const {data,error}=await sb.from("subcontractor_punch_events").select("worker_id,event_type,scanned_at").gte("scanned_at",from).lt("scanned_at",to).order("scanned_at");
+      if(error)throw error;
+      const latest=new Map();
+      (data||[]).forEach(e=>latest.set(e.worker_id,e));
+      const stillPresent=workers.filter(w=>String(latest.get(w.id)?.event_type||"").toUpperCase()==="IN");
+      if(!stillPresent.length){$("spMsg").textContent="Aucun chauffeur n’est actuellement présent.";return;}
+      const timestamp=new Date().toISOString();
+      const payload=stillPresent.map(w=>({company:w.company,worker_id:w.id,event_type:"OUT",scanned_at:timestamp,created_by:user.id}));
+      const {error:insertError}=await sb.from("subcontractor_punch_events").insert(payload);
+      if(insertError)throw insertError;
+      $("spMsg").textContent=`Travail arrêté : sortie enregistrée pour ${stillPresent.length} chauffeur(s).`;
+      await refresh();
+    }catch(e){$("spMsg").textContent="Impossible d’arrêter le travail : "+(e.message||"Vérifiez les autorisations Supabase.");}
+    finally{btn.disabled=false;}
+  });
+  $("spClearHistory").addEventListener("click",async()=>{
+    if(!confirm("ATTENTION : cette action supprimera définitivement TOUS les enregistrements de pointage (toutes les dates et toutes les sociétés). Les chauffeurs et leurs badges seront conservés. Continuer ?"))return;
+    if(!confirm("Dernière confirmation : effacer tout l’historique des pointages ? Cette action est irréversible."))return;
+    const btn=$("spClearHistory");btn.disabled=true;
+    try{
+      const {error}=await sb.from("subcontractor_punch_events").delete().not("id","is",null);
+      if(error)throw error;
+      $("spMsg").textContent="Tout l’historique des pointages a été supprimé.";
+      await refresh();
+    }catch(e){$("spMsg").textContent="Impossible d’effacer l’historique : "+(e.message||"Vérifiez les autorisations Supabase.");}
+    finally{btn.disabled=false;}
+  });
   $("spDate").value=today();$("spDate").addEventListener("change",refresh);$("spFilterCompany").addEventListener("change",refresh);$("spRefresh").addEventListener("click",refresh);
   $("spExport").addEventListener("click",()=>{
     const selected=$("spDate").value||today();
