@@ -674,8 +674,8 @@ function wrapEscaleActions(actionCell, menuLabel = "⚙ Actions") {
 
 function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
-  panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${(admin||staff)?'<a id="containerTrackingLink" href="https://smatinizar528.github.io/IPSEN-Container-Tracking/" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#075db5;color:#fff;text-decoration:none;border-radius:14px;padding:15px 18px;min-height:58px;font-size:clamp(14px,1.7vw,18px);font-weight:800;box-shadow:0 3px 9px #0b47741a">🚛 Suivi des conteneurs</a>':''}${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button><button id="manageAccountsBtn" type="button" class="btn-amber">👤 Créer un compte</button><button id="managePasswordsBtn" type="button" class="btn-light">🔑 Gérer les mots de passe</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button><button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showSubcontractorPointageSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🕒<br>Pointage sous-traitance</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
+  panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button><button id="manageAccountsBtn" type="button" class="btn-amber">👤 Créer un compte</button><button id="managePasswordsBtn" type="button" class="btn-light">🔑 Gérer les mots de passe</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
+  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button>${admin?'<button type="button" id="showTrackingDashboard" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🌍<br>Container Tracking</button>':''}<button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showSubcontractorPointageSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🕒<br>Pointage sous-traitance</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
   <div id="stockManagementView" class="${admin?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
@@ -1159,27 +1159,30 @@ async function loadPortal(user, profile) {
   if (isAdmin || isStaff) {
     await addContainerModule(panel, clients, isStaff);
     if (isAdmin) {
+      await addContainerTrackingModule(panel);
       await addExitRequestsModule(panel, clientNames);
     }
     const stockView=panel.querySelector("#stockManagementView");
     const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection"), bonsBtn=panel.querySelector("#showReturnBonsSection");
     const containersView=panel.querySelector("#containerManagementView");
     const showSection=(which)=>{
-      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders", showPointage=which==="pointage";
+      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders", showPointage=which==="pointage", showTracking=which==="tracking";
       stockView?.classList.toggle("hide",!showStock);
       panel.querySelector("#interiorStockManagementView")?.classList.toggle("hide",!showInterior);
       containersView?.classList.toggle("hide",!(showContainers||showBons));
+      panel.querySelector("#containerTrackingDashboard")?.classList.toggle("hide",!showTracking);
       containersView?.querySelector("#containerMainContent")?.classList.toggle("hide",!showContainers);
       containersView?.querySelector("#returnBonsSection")?.classList.toggle("hide",!showBons);
       panel.querySelector("#refreshRequests")?.closest("section")?.classList.toggle("hide",!showRequests);
       panel.querySelector("#inventoryReminderSection")?.classList.toggle("hide",!showInventoryReminders);
       panel.querySelector("#subcontractorPointageSection")?.classList.toggle("hide",!showPointage);
-      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
+      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage],[panel.querySelector("#showTrackingDashboard"),showTracking]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
       if(!showContainers){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
     panel.querySelector("#showInteriorStockSection")?.addEventListener("click",()=>showSection("interior"));
     containersBtn.addEventListener("click",()=>showSection("containers"));
+    panel.querySelector("#showTrackingDashboard")?.addEventListener("click",()=>showSection("tracking"));
     bonsBtn?.addEventListener("click",()=>showSection("bons"));
     panel.querySelector("#showExitRequestsSection")?.addEventListener("click",()=>showSection("requests"));
     panel.querySelector("#showInventoryReminderSection")?.addEventListener("click",()=>showSection("inventoryReminders"));
@@ -1853,6 +1856,67 @@ function duration(entry, exit) {
   if (hours > 0) return `${hours} h ${minutes} min`;
   return `${minutes} min`;
 }
+async function addContainerTrackingModule(parent) {
+  // Admin-only dashboard shell. Live carrier data is intentionally not fabricated.
+  const section = document.createElement("section");
+  section.id = "containerTrackingDashboard";
+  section.className = "card hide";
+  section.style.cssText = "margin-top:20px;border-left:8px solid #075db5";
+  section.innerHTML = `
+    <div class="toolbar" style="align-items:flex-start">
+      <div><h1 style="margin-bottom:5px">🌍 IPSEN — Container Tracking</h1><p style="margin:0">Suivi centralisé des conteneurs maritimes — accès Admin</p></div>
+      <span style="display:inline-flex;align-items:center;gap:7px;background:#fff7ed;color:#9a3412;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800">● API non connectée</span>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0">
+      <div class="stat"><div class="stat-label">En cours</div><div class="stat-value">—</div><small style="color:#64748b">Données API requises</small></div>
+      <div class="stat"><div class="stat-label">Arrivée sous 7 jours</div><div class="stat-value">—</div><small style="color:#64748b">ETA fournisseur requise</small></div>
+      <div class="stat"><div class="stat-label">En retard</div><div class="stat-value">—</div><small style="color:#64748b">ETA fournisseur requise</small></div>
+      <div class="stat"><div class="stat-label">Recherche</div><div class="stat-value">—</div><small style="color:#64748b">Suivi transporteur</small></div>
+      <div class="stat"><div class="stat-label">Terminés ce mois</div><div class="stat-value">—</div><small style="color:#64748b">Données API requises</small></div>
+    </div>
+    <section style="background:#f4f8fc;border:1px solid #dce8f4;border-radius:16px;padding:18px;margin:16px 0">
+      <h3 style="margin:0 0 8px">🔎 Rechercher un conteneur</h3>
+      <p style="margin:0 0 10px">Saisissez un numéro de conteneur pour préparer une recherche auprès du transporteur.</p>
+      <form id="carrierTrackingSearch" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px) auto;gap:9px;align-items:end">
+        <div><label for="carrierContainerNumber">Numéro du conteneur</label><input id="carrierContainerNumber" placeholder="Ex. MSKU1234567" maxlength="15" autocomplete="off" autocapitalize="characters" required style="margin-bottom:0"></div>
+        <div><label for="carrierTrackingCompany">Compagnie maritime</label><select id="carrierTrackingCompany" style="margin-bottom:0"><option value="auto">Détection automatique</option><option>Maersk</option><option>MSC</option><option>CMA CGM</option><option>Hapag-Lloyd</option><option>COSCO</option><option>Autre</option></select></div>
+        <button type="submit" class="btn-green" style="margin:0">Rechercher</button>
+      </form>
+      <p id="carrierTrackingMessage" role="status" aria-live="polite" style="margin:12px 0 0;font-weight:700;color:#9a3412">Le connecteur API n’est pas encore configuré. Aucun suivi réel n’est affiché.</p>
+    </section>
+    <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:14px">
+      <section style="border:1px solid #dce8f4;border-radius:16px;padding:16px;min-height:190px">
+        <h3 style="margin:0 0 10px">🚢 Expéditions & événements</h3>
+        <div class="table-wrap"><table><thead><tr><th>Conteneur</th><th>Compagnie</th><th>Dernier événement</th><th>ETA</th><th>Statut</th></tr></thead><tbody><tr><td colspan="5" style="text-align:center;padding:24px;color:#64748b">Aucune donnée de transporteur connectée.</td></tr></tbody></table></div>
+      </section>
+      <section style="border:1px solid #dce8f4;border-radius:16px;padding:16px;min-height:190px;background:linear-gradient(145deg,#f8fbff,#edf5fd)">
+        <h3 style="margin:0 0 10px">🗺️ Carte des expéditions</h3>
+        <div style="min-height:120px;border-radius:12px;background:repeating-linear-gradient(0deg,#e7f0f8,#e7f0f8 1px,transparent 1px,transparent 28px),repeating-linear-gradient(90deg,#e7f0f8,#e7f0f8 1px,transparent 1px,transparent 28px);display:grid;place-items:center;text-align:center;padding:15px;color:#64748b"><div><div style="font-size:30px">🌐</div><strong>Carte en attente des données GPS / AIS</strong><div style="font-size:12px;margin-top:5px">La position des navires apparaîtra après connexion du fournisseur.</div></div></div>
+      </section>
+    </div>
+    <section style="border:1px solid #dce8f4;border-radius:16px;padding:16px;margin-top:14px">
+      <h3 style="margin:0 0 8px">🕘 Historique des mouvements</h3>
+      <p style="margin:0">Les événements (chargement, départ, transbordement, arrivée et livraison) seront affichés ici lorsque l’API sera activée.</p>
+    </section>
+    <p style="font-size:12px;margin:14px 0 0">Phase 1 — interface préparée. Prochaine étape : valider l’accès API et le coût pour environ 70 conteneurs par mois. Les clés API devront être stockées côté serveur (Supabase Edge Function), jamais dans ce fichier HTML.</p>
+  `;
+  parent.appendChild(section);
+  const form = section.querySelector("#carrierTrackingSearch");
+  form.addEventListener("submit", event => {
+    event.preventDefault();
+    const number = section.querySelector("#carrierContainerNumber").value.trim().toUpperCase();
+    const company = section.querySelector("#carrierTrackingCompany").value;
+    const message = section.querySelector("#carrierTrackingMessage");
+    if (!/^[A-Z]{4}\d{7}$/.test(number)) {
+      message.textContent = "Vérifiez le numéro : format ISO courant attendu (4 lettres + 7 chiffres).";
+      message.style.color = "#b91c1c";
+      return;
+    }
+    message.textContent = `Recherche préparée pour ${number} (${company === "auto" ? "détection automatique" : company}). Le suivi réel sera disponible après activation d’un accès API autorisé.`;
+    message.style.color = "#9a3412";
+  });
+}
+
 async function addContainerModule(parent, clients, readOnly=false) {
   const section = document.createElement("section");
   section.className = "card"; section.style.marginTop = "20px";
