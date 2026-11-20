@@ -1222,7 +1222,7 @@ async function loadPortal(user, profile) {
       panel.querySelector("#refreshRequests")?.closest("section")?.classList.toggle("hide",!showRequests);
       panel.querySelector("#inventoryReminderSection")?.classList.toggle("hide",!showInventoryReminders);
       panel.querySelector("#subcontractorPointageSection")?.classList.toggle("hide",!showPointage);
-      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage],[panel.querySelector("#showTrackingDashboard"),showTracking],[panel.querySelector("#showVacantLocationsSection"),showVacant]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
+      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage],[panel.querySelector("#showTrackingDashboard"),showTracking],[panel.querySelector("#showVacantLocationsSection"),showVacant],[panel.querySelector("#Section"),]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
       if(!showContainers){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
@@ -1270,6 +1270,8 @@ async function addVacantLocationsDashboard(parent) {
   section.querySelector("#refreshVacantLocations").addEventListener("click",refresh);
   await refresh();
 }
+
+
 
 async function addSubcontractorPointageModule(parent, user) {
   const section=document.createElement("section");
@@ -2101,10 +2103,11 @@ async function addContainerModule(parent, clients, readOnly=false) {
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin:10px 0">
       <input id="cSearch" style="flex:1;min-width:220px" placeholder="Rechercher : numéro, compagnie, statut, matricule…" aria-label="Recherche rapide dans tous les mouvements">
       <button id="cPrintFiltered" type="button" class="btn-light">Imprimer la liste</button>
+      <button id="cPrintSelectedTransalia" type="button" class="btn-green">☑️ Générer le bon TRANSALIA (sélection)</button>
       <button id="cPrintTodayByCompany" type="button" class="btn-green">📄 Sorties du jour — par compagnie</button>
       <button id="cResetFilters" type="button" class="btn-light">Réinitialiser</button>
     </div>
-    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
+    <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Sélection</th><th>N° conteneur</th><th>Compagnie conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Dégâts à la sortie</th><th>Matricule à l’entrée</th><th>Matricule à la sortie</th><th>Entrée</th><th>Sortie</th><th>Durée</th><th>Statut</th><th>Action</th></tr></thead><tbody id="cRows"></tbody></table></div>
     <p id="cCount"></p>
     </div>
     <div id="returnBonsSection" class="hide">
@@ -2151,6 +2154,7 @@ async function addContainerModule(parent, clients, readOnly=false) {
   try { activeTransaliaIntervention = JSON.parse(localStorage.getItem("ipsen_transalia_intervention") || "null"); } catch (_) {}
   let containerQuickFilter="";
   let lastFilteredMovements = [];
+  const selectedTransaliaIds = new Set();
   section.querySelectorAll("[data-container-filter]").forEach(card=>{
     const activate=()=>{el("cSearch").value="";containerQuickFilter=containerQuickFilter===card.dataset.containerFilter?"":card.dataset.containerFilter;renderRows();};
     card.addEventListener("click",activate);
@@ -2515,6 +2519,21 @@ async function addContainerModule(parent, clients, readOnly=false) {
     renderTransaliaArchive();
     updateTransaliaInterventionUI();
   }
+  function updateSelectedTransaliaButton(){
+    const b=el("cPrintSelectedTransalia");
+    if(b)b.textContent=`☑️ Générer le bon TRANSALIA (${selectedTransaliaIds.size})`;
+  }
+  function printSelectedTransalia(){
+    const selected=movements.filter(m=>selectedTransaliaIds.has(String(m.id)));
+    if(!selected.length){alert("Sélectionnez au moins un conteneur dans l’historique.");return;}
+    const esc=v=>String(v??"—").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+    const rows=selected.map((m,i)=>`<tr><td>${i+1}</td><td>${esc(m.container_number)}</td><td>${esc(m.container_type?m.container_type+" pieds":"—")}</td><td>${esc(m.has_damage??"—")}</td><td>${esc(formatDate(m.entry_at))}</td><td>${esc(m.truck_registration||"—")}</td></tr>`).join("");
+    const w=window.open("","_blank","width=1100,height=800");
+    if(!w){alert("Autorisez les fenêtres pop-up pour imprimer le bon.");return;}
+    w.document.write(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Bon TRANSALIA</title><style>body{font-family:Arial,sans-serif;margin:24px;color:#1f2937}h1{text-align:center;color:#17466b;margin-bottom:6px}.sub{text-align:center;color:#64748b;margin-bottom:24px}.meta{display:flex;justify-content:space-between;margin:18px 0}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #9ca3af;padding:9px;text-align:left}th{background:#edf3f8}.sign{display:flex;justify-content:space-between;margin-top:65px}.sign div{width:40%;border-top:1px solid #555;padding-top:8px;text-align:center}@media print{body{margin:12mm}}</style></head><body><h1>BON DE TRANSFERT — TRANSALIA</h1><div class="sub">Conteneurs sélectionnés dans l’historique IPSEN</div><div class="meta"><span>Date : ${esc(new Date().toLocaleDateString("fr-FR"))}</span><span>Nombre de conteneurs : <b>${selected.length}</b></span></div><table><thead><tr><th>N°</th><th>N° conteneur</th><th>Type</th><th>Dégâts à l’entrée</th><th>Date d’entrée</th><th>Matricule à l’entrée</th></tr></thead><tbody>${rows}</tbody></table><div class="sign"><div>Signature IPSEN</div><div>Signature TRANSALIA</div></div><script>window.onload=()=>window.print()<\/script></body></html>`);
+    w.document.close();
+  }
+  el("cPrintSelectedTransalia")?.addEventListener("click",printSelectedTransalia);
   function renderRows(){
     const normalizeSearch = value => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
     const q=normalizeSearch(el("cSearch").value), tbody=el("cRows"); tbody.replaceChildren();
@@ -2547,6 +2566,12 @@ async function addContainerModule(parent, clients, readOnly=false) {
     lastFilteredMovements=filtered;
     filtered.forEach(x=>{
       const tr=document.createElement("tr");
+      const selectCell=document.createElement("td");
+      const selectBox=document.createElement("input");
+      selectBox.type="checkbox"; selectBox.checked=selectedTransaliaIds.has(String(x.id));
+      selectBox.setAttribute("aria-label",`Sélectionner ${x.container_number||"ce conteneur"} pour le bon TRANSALIA`);
+      selectBox.addEventListener("change",()=>{if(selectBox.checked)selectedTransaliaIds.add(String(x.id));else selectedTransaliaIds.delete(String(x.id));updateSelectedTransaliaButton();});
+      selectCell.appendChild(selectBox); tr.appendChild(selectCell);
       const vals=[x.container_number,x.container_company||"—",x.container_type?`${x.container_type} pieds`:"—",x.has_damage??"—",x.exit_has_damage??(x.exit_at?"Non renseigné":"—"),x.truck_registration||"—",x.exit_truck_registration|| (x.exit_at?"Non renseigné":"—"),formatDate(x.entry_at),formatDate(x.exit_at),duration(x.entry_at,x.exit_at),x.exit_at?"Sorti":"Dans le parc"];
       vals.forEach(v=>tr.appendChild(cell(v)));
       const actionCell=document.createElement("td");
@@ -2566,7 +2591,8 @@ async function addContainerModule(parent, clients, readOnly=false) {
       }
       tr.appendChild(actionCell); tbody.appendChild(tr);
     });
-    el("cCount").textContent=`${filtered.length} mouvement(s) affiché(s)`;
+    el("cCount").textContent=`${filtered.length} mouvement(s) affiché(s) — ${selectedTransaliaIds.size} sélectionné(s) pour TRANSALIA`;
+    updateSelectedTransaliaButton();
   }
   async function editMovement(movement, button){
     // Admin only: correct common data-entry mistakes while keeping the existing movement record.
