@@ -675,7 +675,7 @@ function wrapEscaleActions(actionCell, menuLabel = "⚙ Actions") {
 function makePanel(title, admin, staff=false) {
   const panel=document.createElement("section");panel.className="card";panel.style.marginTop="20px";
   panel.innerHTML=`<div class="toolbar"><div><h1>${title}</h1><p>Tableau de bord logistique IPSEN</p></div><div class="toolbar-actions">${admin?'<button id="newEscaleBtn" type="button">＋ Nouvelle escale</button><button id="importExcelBtn" type="button" class="btn-green">📥 Importer depuis Excel</button><button id="manageAccountsBtn" type="button" class="btn-amber">👤 Créer un compte</button><button id="managePasswordsBtn" type="button" class="btn-light">🔑 Gérer les mots de passe</button>':''}<button id="logout" class="btn-light" type="button">Se déconnecter</button></div></div>
-  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button>${admin?'<button type="button" id="showTrackingDashboard" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🌍<br>Container Tracking</button><button type="button" id="showVacantLocationsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📍<br>Espaces libres</button><button type="button" id="showPark3DSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏗️<br>Vue 3D du parc</button>':''}<button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showSubcontractorPointageSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🕒<br>Pointage sous-traitance</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
+  ${(admin||staff)?`<nav id="adminSectionsNav" aria-label="Sections de gestion" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0 26px"><button type="button" id="showStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📦<br>État de stock extérieur</button><button type="button" id="showInteriorStockSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🏬<br>État de stock intérieur</button><button type="button" id="showContainersSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🚛<br>État des conteneurs</button>${admin?'<button type="button" id="showTrackingDashboard" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🌍<br>Container Tracking</button><button type="button" id="showVacantLocationsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📍<br>Espaces libres</button>':''}<button type="button" id="showReturnBonsSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">📄<br>Suivi des bons de restitution</button><button type="button" id="showSubcontractorPointageSection" class="section-nav-button btn-light" aria-pressed="false" style="min-height:110px;padding:24px 18px;font-size:clamp(19px,2.2vw,25px);border-radius:16px;white-space:normal">🕒<br>Pointage sous-traitance</button><button type="button" id="showExitRequestsSection" class="section-nav-button btn-light" aria-label="Demandes de sortie" title="Demandes de sortie" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">🔔<span id="exitRequestsBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Demandes</span></button><button type="button" id="showInventoryReminderSection" class="section-nav-button btn-light" aria-label="Rappels inventaire" title="Rappels inventaire" aria-pressed="false" style="position:relative;min-height:72px;padding:14px 18px;font-size:28px;border-radius:16px;align-self:center">📦<span id="inventoryReminderBadge" style="display:none;position:absolute;top:5px;right:8px;min-width:23px;height:23px;padding:0 6px;border-radius:20px;background:#dc2626;color:white;font-size:13px;font-weight:800;line-height:23px;text-align:center">0</span><span style="display:block;font-size:13px;margin-top:5px">Inventaire</span></button></nav>`:''}
   <div id="stockManagementView" class="${admin?'hide':''}">
   <div id="stats" class="stats-grid"><div class="stat">Chargement des indicateurs…</div></div>
   ${admin?`<section id="importExcelPanel" class="hide" style="background:#f0fdf4;border:1px solid #bbf7d0;padding:18px;border-radius:14px;margin:18px 0"><h3>📥 Importer les escales depuis Excel</h3><p>Colonnes reconnues : Client, ESC, RUB, Date d'entrée, Nombre de colis, Poids brut (kg). Le nom du client dans Excel est facultatif si vous choisissez un client par défaut ci-dessous.</p><label for="importDefaultClient">Client par défaut (si le fichier ne contient pas le client)</label><select id="importDefaultClient"><option value="">Choisir un client par défaut</option></select><label for="importExcelFile">Fichier Excel (.xlsx, .xls) ou CSV</label><input id="importExcelFile" type="file" accept=".xlsx,.xls,.csv" /><div class="form-actions"><button id="previewExcelBtn" type="button">Vérifier le fichier</button><button id="runExcelImportBtn" type="button" class="btn-green" disabled>Importer les escales valides</button><button id="cancelExcelImportBtn" type="button" class="btn-light">Fermer</button></div><p id="importExcelMsg" role="status"></p><div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Ligne Excel</th><th>Client</th><th>ESC</th><th>RUB</th><th>Date entrée</th><th>Colis</th><th>Poids brut</th><th>Résultat</th></tr></thead><tbody id="importExcelRows"><tr><td colspan="8">Choisissez un fichier puis cliquez sur « Vérifier le fichier ».</td></tr></tbody></table></div></section>`:''}
@@ -1205,26 +1205,24 @@ async function loadPortal(user, profile) {
     if (isAdmin) {
       await addContainerTrackingModule(panel);
       await addVacantLocationsDashboard(panel);
-      await addPark3DModule(panel, () => records);
       await addExitRequestsModule(panel, clientNames);
     }
     const stockView=panel.querySelector("#stockManagementView");
     const stockBtn=panel.querySelector("#showStockSection"), containersBtn=panel.querySelector("#showContainersSection"), bonsBtn=panel.querySelector("#showReturnBonsSection");
     const containersView=panel.querySelector("#containerManagementView");
     const showSection=(which)=>{
-      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders", showPointage=which==="pointage", showTracking=which==="tracking", showVacant=which==="vacant", showPark3D=which==="park3d";
+      const showStock=which==="stock", showContainers=which==="containers", showBons=which==="bons", showInterior=which==="interior", showRequests=which==="requests", showInventoryReminders=which==="inventoryReminders", showPointage=which==="pointage", showTracking=which==="tracking", showVacant=which==="vacant";
       stockView?.classList.toggle("hide",!showStock);
       panel.querySelector("#interiorStockManagementView")?.classList.toggle("hide",!showInterior);
       containersView?.classList.toggle("hide",!(showContainers||showBons));
       panel.querySelector("#containerTrackingDashboard")?.classList.toggle("hide",!showTracking);
       panel.querySelector("#vacantLocationsDashboard")?.classList.toggle("hide",!showVacant);
-      panel.querySelector("#park3DDashboard")?.classList.toggle("hide",!showPark3D);
       containersView?.querySelector("#containerMainContent")?.classList.toggle("hide",!showContainers);
       containersView?.querySelector("#returnBonsSection")?.classList.toggle("hide",!showBons);
       panel.querySelector("#refreshRequests")?.closest("section")?.classList.toggle("hide",!showRequests);
       panel.querySelector("#inventoryReminderSection")?.classList.toggle("hide",!showInventoryReminders);
       panel.querySelector("#subcontractorPointageSection")?.classList.toggle("hide",!showPointage);
-      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage],[panel.querySelector("#showTrackingDashboard"),showTracking],[panel.querySelector("#showVacantLocationsSection"),showVacant],[panel.querySelector("#showPark3DSection"),showPark3D]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
+      [[stockBtn,showStock],[panel.querySelector("#showInteriorStockSection"),showInterior],[containersBtn,showContainers],[bonsBtn,showBons],[panel.querySelector("#showExitRequestsSection"),showRequests],[panel.querySelector("#showInventoryReminderSection"),showInventoryReminders],[panel.querySelector("#showSubcontractorPointageSection"),showPointage],[panel.querySelector("#showTrackingDashboard"),showTracking],[panel.querySelector("#showVacantLocationsSection"),showVacant]].forEach(([btn,active])=>{if(!btn)return;btn.className="section-nav-button "+(active?"btn-green":"btn-light");btn.setAttribute("aria-pressed",String(active));});
       if(!showContainers){panel.querySelector("#importExcelPanel")?.classList.add("hide");panel.querySelector("#newEscaleForm")?.classList.add("hide");}
     };
     stockBtn.addEventListener("click",()=>showSection("stock"));
@@ -1232,7 +1230,6 @@ async function loadPortal(user, profile) {
     containersBtn.addEventListener("click",()=>showSection("containers"));
     panel.querySelector("#showTrackingDashboard")?.addEventListener("click",()=>showSection("tracking"));
     panel.querySelector("#showVacantLocationsSection")?.addEventListener("click",()=>{showSection("vacant");panel.querySelector("#refreshVacantLocations")?.click();});
-    panel.querySelector("#showPark3DSection")?.addEventListener("click",()=>showSection("park3d"));
     bonsBtn?.addEventListener("click",()=>showSection("bons"));
     panel.querySelector("#showExitRequestsSection")?.addEventListener("click",()=>showSection("requests"));
     panel.querySelector("#showInventoryReminderSection")?.addEventListener("click",()=>showSection("inventoryReminders"));
@@ -1272,64 +1269,6 @@ async function addVacantLocationsDashboard(parent) {
   }
   section.querySelector("#refreshVacantLocations").addEventListener("click",refresh);
   await refresh();
-}
-
-
-async function addPark3DModule(parent, getRecords) {
-  const section=document.createElement("section");
-  section.id="park3DDashboard";
-  section.className="card hide";
-  section.style.cssText="margin-top:20px;padding:16px";
-  section.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px">
-      <div>
-        <h1 style="margin:0">🏗️ Parc Logistique IPSEN — Vue 3D</h1>
-        <p style="margin:6px 0 0;color:#64748b">Occupation calculée depuis le stock réel du portail.</p>
-      </div>
-      <button id="refreshPark3D" type="button" class="btn-light">↻ Actualiser les données</button>
-    </div>
-    <div id="park3DLiveSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px;margin-bottom:14px"></div>
-    <div style="width:100%;overflow:auto;border:1px solid #dbeafe;border-radius:14px;background:#071a31">
-      <img src="${data_uri}" alt="Maquette 3D du parc logistique IPSEN avec les zones et les accès" style="display:block;width:100%;height:auto;min-width:620px">
-    </div>
-    <h3 style="margin:18px 0 10px">Occupation réelle par zone</h3>
-    <div id="park3DZoneCards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px"></div>
-    <p id="park3DStatus" role="status" style="font-size:12px;color:#64748b;margin:12px 0 0"></p>
-    <p style="font-size:12px;color:#9a3412;margin:8px 0 0">Les chiffres ci-dessous proviennent de stock_records. La maquette 3D reste une illustration : les positions exactes et les dimensions ne sont pas encore modélisées à l’échelle.</p>
-  `;
-  parent.appendChild(section);
-  const zones=["Zone 1","Zone 2","Zone 3","1W","3W","B"];
-  const summary=section.querySelector("#park3DLiveSummary");
-  const cards=section.querySelector("#park3DZoneCards");
-  const status=section.querySelector("#park3DStatus");
-  const esc=v=>String(v??"—").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-  function refresh(){
-    const all=(typeof getRecords==="function"?getRecords():[])||[];
-    const active=all.filter(r=>!/livr/i.test(r.statut||"")&&!r.date_sortie);
-    const totalColis=active.reduce((sum,r)=>sum+(Number(r.colis)||0),0);
-    const assigned=active.filter(r=>zones.includes(r.emplacement));
-    const unassigned=active.filter(r=>!zones.includes(r.emplacement));
-    summary.innerHTML=`
-      <div class="stat"><div class="stat-label">Escales dans le parc</div><div class="stat-value">${active.length}</div></div>
-      <div class="stat"><div class="stat-label">Total colis en stock</div><div class="stat-value">${totalColis.toLocaleString("fr-FR")}</div></div>
-      <div class="stat"><div class="stat-label">Escales avec zone</div><div class="stat-value">${assigned.length}</div></div>
-      <div class="stat"><div class="stat-label">Sans zone affectée</div><div class="stat-value">${unassigned.length}</div></div>`;
-    cards.innerHTML=zones.map(zone=>{
-      const rows=active.filter(r=>r.emplacement===zone);
-      const colis=rows.reduce((sum,r)=>sum+(Number(r.colis)||0),0);
-      return `<article style="border:1px solid ${rows.length?"#bfdbfe":"#bbf7d0"};background:${rows.length?"#eff6ff":"#f0fdf4"};border-radius:12px;padding:13px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:6px">
-          <strong style="font-size:16px">${esc(zone)}</strong>
-          <span style="font-size:11px;font-weight:800;color:${rows.length?"#1d4ed8":"#166534"}">${rows.length?"OCCUPÉE":"AUCUNE ESCALE"}</span>
-        </div>
-        <div style="font-size:23px;font-weight:900;margin:8px 0">${colis.toLocaleString("fr-FR")} <small style="font-size:12px;font-weight:600">colis</small></div>
-        <div style="font-size:12px;color:#64748b">${rows.length} escale(s) active(s)</div>
-      </article>`;
-    }).join("");
-    status.textContent=`Données stock actualisées : ${new Date().toLocaleString("fr-FR")}. Les escales sans emplacement ne sont pas affectées à une zone.`;
-  }
-  section.querySelector("#refreshPark3D").addEventListener("click",refresh);
-  refresh();
 }
 
 async function addSubcontractorPointageModule(parent, user) {
