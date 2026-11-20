@@ -1857,7 +1857,7 @@ function duration(entry, exit) {
   return `${minutes} min`;
 }
 async function addContainerTrackingModule(parent) {
-  // Admin-only dashboard shell. Live carrier data is intentionally not fabricated.
+  // Module réservé aux administrateurs. Les résultats réels nécessitent encore un fournisseur API.
   const section = document.createElement("section");
   section.id = "containerTrackingDashboard";
   section.className = "card hide";
@@ -1868,55 +1868,110 @@ async function addContainerTrackingModule(parent) {
       <span style="display:inline-flex;align-items:center;gap:7px;background:#fff7ed;color:#9a3412;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:800">● API non connectée</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:18px 0">
-      <div class="stat"><div class="stat-label">En cours</div><div class="stat-value">—</div><small style="color:#64748b">Données API requises</small></div>
-      <div class="stat"><div class="stat-label">Arrivée sous 7 jours</div><div class="stat-value">—</div><small style="color:#64748b">ETA fournisseur requise</small></div>
-      <div class="stat"><div class="stat-label">En retard</div><div class="stat-value">—</div><small style="color:#64748b">ETA fournisseur requise</small></div>
-      <div class="stat"><div class="stat-label">Recherche</div><div class="stat-value">—</div><small style="color:#64748b">Suivi transporteur</small></div>
-      <div class="stat"><div class="stat-label">Terminés ce mois</div><div class="stat-value">—</div><small style="color:#64748b">Données API requises</small></div>
+      <div class="stat"><div class="stat-label">Recherches ce mois</div><div class="stat-value" id="ctMonthCount">0</div><small style="color:#64748b">Archive mensuelle</small></div>
+      <div class="stat"><div class="stat-label">Conteneurs recherchés</div><div class="stat-value" id="ctUniqueCount">0</div><small style="color:#64748b">Numéros distincts</small></div>
+      <div class="stat"><div class="stat-label">Dernière recherche</div><div class="stat-value" id="ctLastSearch">—</div><small style="color:#64748b">Date et heure</small></div>
     </div>
     <section style="background:#f4f8fc;border:1px solid #dce8f4;border-radius:16px;padding:18px;margin:16px 0">
       <h3 style="margin:0 0 8px">🔎 Rechercher un conteneur</h3>
-      <p style="margin:0 0 10px">Saisissez un numéro de conteneur pour préparer une recherche auprès du transporteur.</p>
+      <p style="margin:0 0 10px">Chaque recherche est enregistrée automatiquement dans l’archive du mois correspondant.</p>
       <form id="carrierTrackingSearch" style="display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,220px) auto;gap:9px;align-items:end">
         <div><label for="carrierContainerNumber">Numéro du conteneur</label><input id="carrierContainerNumber" placeholder="Ex. MSKU1234567" maxlength="15" autocomplete="off" autocapitalize="characters" required style="margin-bottom:0"></div>
         <div><label for="carrierTrackingCompany">Compagnie maritime</label><select id="carrierTrackingCompany" style="margin-bottom:0"><option value="auto">Détection automatique</option><option>Maersk</option><option>MSC</option><option>CMA CGM</option><option>Hapag-Lloyd</option><option>COSCO</option><option>Autre</option></select></div>
         <button type="submit" class="btn-green" style="margin:0">Rechercher</button>
       </form>
-      <p id="carrierTrackingMessage" role="status" aria-live="polite" style="margin:12px 0 0;font-weight:700;color:#9a3412">Le connecteur API n’est pas encore configuré. Aucun suivi réel n’est affiché.</p>
+      <p id="carrierTrackingMessage" role="status" aria-live="polite" style="margin:12px 0 0;font-weight:700;color:#9a3412">Le connecteur API n’est pas encore configuré. Les recherches seront archivées avec le statut « En attente API ».</p>
     </section>
-    <div style="display:grid;grid-template-columns:minmax(0,1.2fr) minmax(260px,.8fr);gap:14px">
-      <section style="border:1px solid #dce8f4;border-radius:16px;padding:16px;min-height:190px">
-        <h3 style="margin:0 0 10px">🚢 Expéditions & événements</h3>
-        <div class="table-wrap"><table><thead><tr><th>Conteneur</th><th>Compagnie</th><th>Dernier événement</th><th>ETA</th><th>Statut</th></tr></thead><tbody><tr><td colspan="5" style="text-align:center;padding:24px;color:#64748b">Aucune donnée de transporteur connectée.</td></tr></tbody></table></div>
-      </section>
-      <section style="border:1px solid #dce8f4;border-radius:16px;padding:16px;min-height:190px;background:linear-gradient(145deg,#f8fbff,#edf5fd)">
-        <h3 style="margin:0 0 10px">🗺️ Carte des expéditions</h3>
-        <div style="min-height:120px;border-radius:12px;background:repeating-linear-gradient(0deg,#e7f0f8,#e7f0f8 1px,transparent 1px,transparent 28px),repeating-linear-gradient(90deg,#e7f0f8,#e7f0f8 1px,transparent 1px,transparent 28px);display:grid;place-items:center;text-align:center;padding:15px;color:#64748b"><div><div style="font-size:30px">🌐</div><strong>Carte en attente des données GPS / AIS</strong><div style="font-size:12px;margin-top:5px">La position des navires apparaîtra après connexion du fournisseur.</div></div></div>
-      </section>
-    </div>
     <section style="border:1px solid #dce8f4;border-radius:16px;padding:16px;margin-top:14px">
-      <h3 style="margin:0 0 8px">🕘 Historique des mouvements</h3>
-      <p style="margin:0">Les événements (chargement, départ, transbordement, arrivée et livraison) seront affichés ici lorsque l’API sera activée.</p>
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:end;flex-wrap:wrap">
+        <div><h3 style="margin:0 0 6px">📚 Archive mensuelle des recherches</h3><p style="margin:0;color:#64748b">Chaque mois reste conservé séparément. Aucune suppression automatique.</p></div>
+        <div><label for="ctArchiveMonth">Mois à consulter</label><input type="month" id="ctArchiveMonth" style="margin:0"></div>
+      </div>
+      <p id="ctArchiveMessage" role="status" style="margin:10px 0;color:#64748b">Chargement de l’archive…</p>
+      <div class="table-wrap"><table style="width:100%"><thead><tr><th>Date / heure</th><th>Conteneur</th><th>Compagnie</th><th>Dernier statut</th><th>Dernier résultat</th></tr></thead><tbody id="ctArchiveRows"><tr><td colspan="5" style="text-align:center;padding:20px;color:#64748b">Chargement…</td></tr></tbody></table></div>
     </section>
-    <p style="font-size:12px;margin:14px 0 0">Phase 1 — interface préparée. Prochaine étape : valider l’accès API et le coût pour environ 70 conteneurs par mois. Les clés API devront être stockées côté serveur (Supabase Edge Function), jamais dans ce fichier HTML.</p>
+    <p style="font-size:12px;margin:14px 0 0">Le suivi réel et les événements du transporteur apparaîtront après connexion d’un fournisseur API. Les recherches déjà archivées seront conservées.</p>
   `;
   parent.appendChild(section);
-  const form = section.querySelector("#carrierTrackingSearch");
-  form.addEventListener("submit", event => {
+
+  const $ = id => section.querySelector("#" + id);
+  const monthKey = date => {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`;
+  };
+  const now = new Date();
+  $("ctArchiveMonth").value = monthKey(now);
+
+  async function loadArchive() {
+    const month = $("ctArchiveMonth").value || monthKey(new Date());
+    const [year, mon] = month.split("-").map(Number);
+    const from = `${month}-01T00:00:00`;
+    const to = new Date(year, mon, 1).toISOString();
+    $("ctArchiveMessage").textContent = "Chargement de l’archive…";
+    $("ctArchiveRows").innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px">Chargement…</td></tr>';
+    try {
+      const { data, error } = await sb.from("container_tracking_searches")
+        .select("id,container_number,carrier,latest_status,latest_result,searched_at")
+        .gte("searched_at", new Date(from).toISOString())
+        .lt("searched_at", to)
+        .order("searched_at", {ascending:false});
+      if (error) throw error;
+      const rows = data || [];
+      $("ctMonthCount").textContent = rows.length;
+      $("ctUniqueCount").textContent = new Set(rows.map(x => x.container_number)).size;
+      $("ctLastSearch").textContent = rows.length ? new Date(rows[0].searched_at).toLocaleDateString("fr-FR") : "—";
+      $("ctArchiveMessage").textContent = `${rows.length} recherche(s) enregistrée(s) pour ${month}.`;
+      if (!rows.length) {
+        $("ctArchiveRows").innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#64748b">Aucune recherche pour ce mois.</td></tr>';
+        return;
+      }
+      const esc = value => String(value ?? "—").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+      $("ctArchiveRows").innerHTML = rows.map(x => `<tr><td>${esc(new Date(x.searched_at).toLocaleString("fr-FR"))}</td><td><strong>${esc(x.container_number)}</strong></td><td>${esc(x.carrier)}</td><td>${esc(x.latest_status)}</td><td>${esc(x.latest_result)}</td></tr>`).join("");
+    } catch (err) {
+      $("ctMonthCount").textContent = "—";
+      $("ctUniqueCount").textContent = "—";
+      $("ctLastSearch").textContent = "—";
+      $("ctArchiveMessage").textContent = "Impossible de charger l’archive. Exécutez d’abord le SQL fourni et vérifiez les droits Admin. Détail : " + (err.message || "erreur Supabase");
+      $("ctArchiveRows").innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:#b91c1c">Archive indisponible.</td></tr>';
+    }
+  }
+
+  $("ctArchiveMonth").addEventListener("change", loadArchive);
+  await loadArchive();
+
+  $("carrierTrackingSearch").addEventListener("submit", async event => {
     event.preventDefault();
-    const number = section.querySelector("#carrierContainerNumber").value.trim().toUpperCase();
-    const company = section.querySelector("#carrierTrackingCompany").value;
-    const message = section.querySelector("#carrierTrackingMessage");
+    const number = $("carrierContainerNumber").value.trim().toUpperCase().replace(/\s+/g, "");
+    const company = $("carrierTrackingCompany").value;
+    const message = $("carrierTrackingMessage");
     if (!/^[A-Z]{4}\d{7}$/.test(number)) {
       message.textContent = "Vérifiez le numéro : format ISO courant attendu (4 lettres + 7 chiffres).";
       message.style.color = "#b91c1c";
       return;
     }
-    message.textContent = `Recherche préparée pour ${number} (${company === "auto" ? "détection automatique" : company}). Le suivi réel sera disponible après activation d’un accès API autorisé.`;
+    message.textContent = "Enregistrement de la recherche dans l’archive…";
     message.style.color = "#9a3412";
+    try {
+      const carrier = company === "auto" ? "Détection automatique" : company;
+      const { error } = await sb.from("container_tracking_searches").insert({
+        container_number: number,
+        carrier,
+        latest_status: "En attente API",
+        latest_result: "Recherche enregistrée. Le suivi réel sera disponible après activation d’un fournisseur API.",
+        searched_at: new Date().toISOString(),
+        created_by: (await sb.auth.getUser()).data.user?.id
+      });
+      if (error) throw error;
+      message.textContent = `Recherche de ${number} archivée (${carrier}). Le suivi réel n’est pas encore connecté.`;
+      message.style.color = "#166534";
+      $("carrierContainerNumber").value = "";
+      await loadArchive();
+    } catch (err) {
+      message.textContent = "La recherche n’a pas pu être archivée. Exécutez le SQL fourni et vérifiez les droits Admin. Détail : " + (err.message || "erreur Supabase");
+      message.style.color = "#b91c1c";
+    }
   });
 }
-
 async function addContainerModule(parent, clients, readOnly=false) {
   const section = document.createElement("section");
   section.className = "card"; section.style.marginTop = "20px";
