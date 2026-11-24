@@ -1201,7 +1201,7 @@ async function loadPortal(user, profile) {
   if (isAdmin || isStaff) await addInventoryReminderModule(panel, clientNames);
   if (isAdmin) await addSubcontractorPointageModule(panel, user);
   if (isAdmin || isStaff) {
-    await addContainerModule(panel, clients, isStaff, isAdmin);
+    await addContainerModule(panel, clients, isStaff);
     if (isAdmin) {
       await addContainerTrackingModule(panel);
       await addVacantLocationsDashboard(panel);
@@ -2051,7 +2051,7 @@ async function addContainerTrackingModule(parent) {
     }
   });
 }
-async function addContainerModule(parent, clients, readOnly=false, isAdmin=false) {
+async function addContainerModule(parent, clients, readOnly=false) {
   const section = document.createElement("section");
   section.className = "card"; section.style.marginTop = "20px";
   section.id = "containerManagementView";
@@ -2088,8 +2088,8 @@ async function addContainerModule(parent, clients, readOnly=false, isAdmin=false
     <div id="transaliaArchiveBox" style="background:#f8fafc;border:1px solid #dbe5ef;border-radius:12px;padding:14px;margin:12px 0">
       <button id="toggleTransaliaArchive" type="button" aria-expanded="false" style="width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e4effb;color:#123f68;border:0;border-radius:10px;padding:13px 16px;font-size:16px;font-weight:800;text-align:left;cursor:pointer">📚 Archive des bons TRANSALIA <span id="transaliaArchiveChevron">▼</span></button>
       <div id="transaliaArchiveContent" hidden style="padding-top:12px">
-        <p style="margin:0 0 10px;color:#64748b">Les archives sont classées par mois. Les administrateurs peuvent supprimer un bon TRANSALIA. Les fiches des conteneurs restent conservées.</p>
-        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:12px 0"><div><label for="transaliaArchiveMonth">Choisir le mois</label><input id="transaliaArchiveMonth" type="month" style="margin:0"></div><button id="transaliaArchiveAllMonths" type="button" class="btn-light">Afficher tous les mois</button></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Intervention</th><th>Date</th><th>Conteneurs</th><th>Actions</th></tr></thead><tbody id="transaliaArchiveRows"><tr><td colspan="4">Chargement de l'archive…</td></tr></tbody></table></div>
+        <p style="margin:0 0 10px;color:#64748b">Les archives sont classées par mois. Tous les bons restent conservés dans le site, sans suppression automatique.</p>
+        <div style="display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin:12px 0"><div><label for="transaliaArchiveMonth">Choisir le mois</label><input id="transaliaArchiveMonth" type="month" style="margin:0"></div><button id="transaliaArchiveAllMonths" type="button" class="btn-light">Afficher tous les mois</button></div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th>Intervention</th><th>Date</th><th>Conteneurs</th><th>Bon</th></tr></thead><tbody id="transaliaArchiveRows"><tr><td colspan="4">Chargement de l'archive…</td></tr></tbody></table></div>
       </div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:10px;margin:12px 0"><button id="cEntry" type="button">Confirmer l'entrée</button><button id="cExit" type="button" style="background:#b45309">Confirmer la sortie</button></div>`}
@@ -2207,78 +2207,50 @@ async function addContainerModule(parent, clients, readOnly=false, isAdmin=false
     el("startTransaliaIntervention").disabled=!!activeTransaliaIntervention;
   }
   function safePrintText(value){return String(value??"—").replace(/[&<>\"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'\"':"&quot;","'":"&#39;"}[ch]));}
-  async function deleteTransaliaBon(code,button){
-    if(!isAdmin){alert("Seul un administrateur peut supprimer un bon.");return;}
-    const list=movements.filter(m=>m.handled_by==="TRANSALIA"&&m.intervention_code===code);
-    if(!list.length){alert("Aucun conteneur trouvé pour ce bon.");return;}
-    const ok=window.confirm(
-      `Supprimer définitivement le bon TRANSALIA ${code} (${list.length} conteneur(s)) ?\n\n`+
-      "Les fiches des conteneurs, leurs dates d’entrée et de sortie, dégâts et autres informations resteront enregistrées. Seul le lien avec ce bon TRANSALIA sera supprimé."
-    );
-    if(!ok)return;
-    button.disabled=true;button.textContent="Suppression…";
-    try{
-      const {data,error}=await sb.rpc("delete_transalia_bon_keep_movements",{
-        p_intervention_code:code
-      });
-      if(error)throw error;
-      if(!data || Number(data.deleted_links||data)===0){
-        throw new Error("Aucun lien de bon n’a été supprimé. Vérifiez le code et les droits.");
-      }
-      movements.forEach(m=>{
-        if(m.handled_by==="TRANSALIA"&&m.intervention_code===code)m.intervention_code=null;
-      });
-      if(activeTransaliaIntervention?.code===code){
-        activeTransaliaIntervention=null;
-        localStorage.removeItem("ipsen_transalia_intervention");
-        updateTransaliaInterventionUI();
-      }
-      if(el("cBonMsg"))el("cBonMsg").textContent=
-        `Bon ${code} supprimé. Les ${list.length} fiches conteneurs et leurs entrées/sorties sont conservées.`;
-      renderTransaliaArchive();
-      renderRows();
-      updateTransaliaInterventionUI();
-    }catch(err){
-      alert("Suppression impossible : "+(err.message||"Vérifiez que le SQL de suppression réelle a été exécuté dans Supabase."));
-      button.disabled=false;button.textContent="🗑️ Supprimer le bon";
-    }
-  }
   function renderTransaliaArchive(){
     const tbody=el("transaliaArchiveRows"); if(!tbody)return;
-    const selectedMonth=el("transaliaArchiveMonth")?.value||"";
+    const monthInput=el("transaliaArchiveMonth");
+    const selectedMonth=monthInput?.value||"";
     const groups=new Map();
-    movements.filter(m=>m.handled_by==="TRANSALIA"&&m.intervention_code).forEach(m=>{
-      if(deletedTransaliaBonCodes.has(m.intervention_code))return;
+    movements.filter(m=>m.handled_by==="TRANSALIA" && m.intervention_code).forEach(m=>{
       if(!groups.has(m.intervention_code))groups.set(m.intervention_code,[]);
       groups.get(m.intervention_code).push(m);
     });
     tbody.replaceChildren();
     const archived=[...groups.entries()].map(([code,list])=>({
-      code,list,first:[...list].sort((a,b)=>String(a.entry_at).localeCompare(String(b.entry_at)))[0]
+      code,
+      list,
+      first:[...list].sort((a,b)=>String(a.entry_at).localeCompare(String(b.entry_at)))[0]
     })).filter(item=>{
       const date=new Date(item.first?.entry_at||"");
       if(!Number.isFinite(date.getTime()))return false;
       if(!selectedMonth)return true;
-      return new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Tunis",year:"numeric",month:"2-digit"}).format(date)===selectedMonth;
+      const month=new Intl.DateTimeFormat("en-CA",{
+        timeZone:"Africa/Tunis",year:"numeric",month:"2-digit"
+      }).format(date);
+      return month===selectedMonth;
     }).sort((a,b)=>Date.parse(b.first?.entry_at||0)-Date.parse(a.first?.entry_at||0));
     if(!archived.length){
-      const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=4;
-      td.textContent=selectedMonth?`Aucun bon TRANSALIA pour ${selectedMonth}.`:"Aucun bon TRANSALIA enregistré.";
+      const tr=document.createElement("tr"),td=document.createElement("td");
+      td.colSpan=4;
+      td.textContent=selectedMonth
+        ? `Aucun bon TRANSALIA pour ${selectedMonth}.`
+        : "Aucun bon TRANSALIA enregistré.";
       tr.appendChild(td);tbody.appendChild(tr);return;
     }
     archived.forEach(({code,list,first})=>{
       const tr=document.createElement("tr");
       [code,formatDate(first?.entry_at),String(list.length)].forEach(v=>{
-        const td=document.createElement("td");td.textContent=v;td.style.padding="9px 7px";td.style.borderBottom="1px solid #e2e8f0";tr.appendChild(td);
+        const td=document.createElement("td");td.textContent=v;
+        td.style.padding="9px 7px";td.style.borderBottom="1px solid #e2e8f0";
+        tr.appendChild(td);
       });
-      const action=document.createElement("td");action.style.padding="7px";action.style.whiteSpace="nowrap";
-      const printBtn=document.createElement("button");printBtn.type="button";printBtn.textContent="📄 Rééditer le bon";printBtn.className="btn-light";
-      printBtn.addEventListener("click",()=>generateTransaliaBon(code));action.appendChild(printBtn);
-      if(isAdmin){
-        const del=document.createElement("button");del.type="button";del.textContent="🗑️ Supprimer le bon";del.className="btn-amber";del.style.marginLeft="6px";
-        del.addEventListener("click",()=>deleteTransaliaBon(code,del));action.appendChild(del);
-      }
-      tr.appendChild(action);tbody.appendChild(tr);
+      const action=document.createElement("td");
+      action.style.padding="7px";action.style.borderBottom="1px solid #e2e8f0";
+      const btn=document.createElement("button");btn.type="button";
+      btn.textContent="📄 Rééditer le bon";btn.className="btn-light";
+      btn.addEventListener("click",()=>generateTransaliaBon(code));
+      action.appendChild(btn);tr.appendChild(action);tbody.appendChild(tr);
     });
   }
 
@@ -2640,25 +2612,6 @@ async function addContainerModule(parent, clients, readOnly=false, isAdmin=false
     if(!["oui","non"].includes(damageIn.trim().toLowerCase())){alert("Indiquez Oui ou Non pour les dégâts à l'entrée.");return;}
     const truckIn=ask("Matricule camion / transporteur à l'entrée :",movement.truck_registration||"");
     if(truckIn===null)return;
-    const currentEntryDate=tunisDateKey(movement.entry_at);
-    const dateIn=ask("Date d'entrée (AAAA-MM-JJ) :",currentEntryDate);
-    if(dateIn===null)return;
-    const cleanEntryDate=dateIn.trim();
-    const validISODate=value=>{
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return false;
-      const [yy,mm,dd]=value.split("-").map(Number);
-      const d=new Date(Date.UTC(yy,mm-1,dd));
-      return d.getUTCFullYear()===yy&&d.getUTCMonth()===mm-1&&d.getUTCDate()===dd;
-    };
-    if(!validISODate(cleanEntryDate)){
-      alert("Date d'entrée invalide. Utilisez AAAA-MM-JJ, par exemple 2026-11-24.");return;
-    }
-    const toTunisISODate=(dateValue,originalTimestamp)=>{
-      const timeParts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(originalTimestamp));
-      const part=type=>timeParts.find(item=>item.type===type)?.value||"00";
-      return new Date(`${dateValue}T${part("hour")}:${part("minute")}:${part("second")}+01:00`).toISOString();
-    };
-    const entryDate=toTunisISODate(cleanEntryDate,movement.entry_at);
     let damageOut=movement.exit_has_damage, truckOut=movement.exit_truck_registration, exitDate=movement.exit_at;
     if(movement.exit_at){
       damageOut=ask("Dégâts à la sortie (Oui/Non) :",movement.exit_has_damage||"Non");
@@ -2670,18 +2623,22 @@ async function addContainerModule(parent, clients, readOnly=false, isAdmin=false
       const dateOut=ask("Date de sortie (AAAA-MM-JJ) :",currentExitDate);
       if(dateOut===null)return;
       const cleanExitDate=dateOut.trim();
-      if(!validISODate(cleanExitDate)){
-        alert("Date de sortie invalide. Utilisez AAAA-MM-JJ et vérifiez le jour, le mois et l'année.");return;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(cleanExitDate) || Number.isNaN(Date.parse(cleanExitDate+"T12:00:00"))){
+        alert("Date invalide. Utilisez le format AAAA-MM-JJ, par exemple 2026-11-11.");return;
       }
-      exitDate=toTunisISODate(cleanExitDate,movement.exit_at);
+      const [year,month,day]=cleanExitDate.split("-").map(Number);
+      const checkDate=new Date(Date.UTC(year,month-1,day));
+      if(checkDate.getUTCFullYear()!==year || checkDate.getUTCMonth()!==month-1 || checkDate.getUTCDate()!==day){
+        alert("Date invalide. Vérifiez le jour, le mois et l'année.");return;
+      }
+      const timeParts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(movement.exit_at));
+      const part=type=>timeParts.find(item=>item.type===type)?.value||"00";
+      exitDate=new Date(`${cleanExitDate}T${part("hour")}:${part("minute")}:${part("second")}+01:00`).toISOString();
     }
-    if(movement.exit_at && new Date(entryDate)>=new Date(exitDate)){
-      alert("La date d'entrée doit être antérieure à la date de sortie.");return;
-    }
-    if(!window.confirm("Enregistrer les corrections de ce mouvement, y compris la date d'entrée ?"))return;
+    if(!window.confirm("Enregistrer les corrections de ce mouvement ?"))return;
     button.disabled=true;button.textContent="Enregistrement…";el("cMsg").textContent="Mise à jour du mouvement…";
     try{
-      const changes={container_number:cleanNumber,container_company:company.trim(),container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null,entry_at:entryDate};
+      const changes={container_number:cleanNumber,container_company:company.trim(),container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null};
       if(movement.exit_at){
         changes.exit_has_damage=damageOut.trim().toLowerCase()==="oui"?"Oui":"Non";
         changes.exit_truck_registration=truckOut.trim()||null;
