@@ -1201,7 +1201,7 @@ async function loadPortal(user, profile) {
   if (isAdmin || isStaff) await addInventoryReminderModule(panel, clientNames);
   if (isAdmin) await addSubcontractorPointageModule(panel, user);
   if (isAdmin || isStaff) {
-    await addContainerModule(panel, clients, isStaff);
+    await addContainerModule(panel, clients, isStaff, isAdmin);
     if (isAdmin) {
       await addContainerTrackingModule(panel);
       await addVacantLocationsDashboard(panel);
@@ -2051,7 +2051,7 @@ async function addContainerTrackingModule(parent) {
     }
   });
 }
-async function addContainerModule(parent, clients, readOnly=false) {
+async function addContainerModule(parent, clients, readOnly=false, isAdmin=false) {
   const section = document.createElement("section");
   section.className = "card"; section.style.marginTop = "20px";
   section.id = "containerManagementView";
@@ -2250,7 +2250,33 @@ async function addContainerModule(parent, clients, readOnly=false) {
       const btn=document.createElement("button");btn.type="button";
       btn.textContent="📄 Rééditer le bon";btn.className="btn-light";
       btn.addEventListener("click",()=>generateTransaliaBon(code));
-      action.appendChild(btn);tr.appendChild(action);tbody.appendChild(tr);
+      action.appendChild(btn);
+      if(isAdmin){
+        const del=document.createElement("button");del.type="button";del.className="btn-red";
+        del.textContent="🗑️ Supprimer le bon";del.style.marginLeft="6px";
+        del.addEventListener("click",async()=>{
+          if(!confirm(`Supprimer le bon TRANSALIA ${code} ?\\nLes mouvements et les dates d'entrée/sortie des conteneurs seront conservés.`))return;
+          del.disabled=true;del.textContent="Suppression…";
+          try{
+            const {data,error}=await sb.rpc("delete_transalia_bon_keep_movements",{p_intervention_code:code});
+            if(error)throw error;
+            const affected=Number(data);
+            if(!Number.isFinite(affected)||affected<1)throw new Error("Aucun lien de bon supprimé.");
+            movements.forEach(m=>{if(m.handled_by==="TRANSALIA"&&m.intervention_code===code)m.intervention_code=null;});
+            if(activeTransaliaIntervention?.code===code){
+              activeTransaliaIntervention=null;
+              try{localStorage.removeItem("ipsen_transalia_intervention");}catch(_){}
+            }
+            el("cBonMsg").textContent=`Bon ${code} supprimé. ${affected} mouvement(s) et leurs entrées/sorties sont conservés.`;
+            renderTransaliaArchive();renderRows();updateTransaliaInterventionUI();
+          }catch(err){
+            alert("Suppression impossible : "+(err.message||"Exécutez le SQL fourni dans Supabase."));
+            del.disabled=false;del.textContent="🗑️ Supprimer le bon";
+          }
+        });
+        action.appendChild(del);
+      }
+      tr.appendChild(action);tbody.appendChild(tr);
     });
   }
 
@@ -2612,6 +2638,22 @@ async function addContainerModule(parent, clients, readOnly=false) {
     if(!["oui","non"].includes(damageIn.trim().toLowerCase())){alert("Indiquez Oui ou Non pour les dégâts à l'entrée.");return;}
     const truckIn=ask("Matricule camion / transporteur à l'entrée :",movement.truck_registration||"");
     if(truckIn===null)return;
+    const dateIn=ask("Date d'entrée (AAAA-MM-JJ) :",tunisDateKey(movement.entry_at));
+    if(dateIn===null)return;
+    const cleanEntryDate=dateIn.trim();
+    const validISODate=value=>{
+      if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(value))return false;
+      const [yy,mm,dd]=value.split("-").map(Number);
+      const d=new Date(Date.UTC(yy,mm-1,dd));
+      return d.getUTCFullYear()===yy&&d.getUTCMonth()===mm-1&&d.getUTCDate()===dd;
+    };
+    if(!validISODate(cleanEntryDate)){alert("Date d'entrée invalide. Utilisez AAAA-MM-JJ.");return;}
+    const keepTunisTime=(dateValue,originalTimestamp)=>{
+      const parts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(originalTimestamp));
+      const part=type=>parts.find(x=>x.type===type)?.value||"00";
+      return new Date(`${dateValue}T${part("hour")}:${part("minute")}:${part("second")}+01:00`).toISOString();
+    };
+    const entryDate=keepTunisTime(cleanEntryDate,movement.entry_at);
     let damageOut=movement.exit_has_damage, truckOut=movement.exit_truck_registration, exitDate=movement.exit_at;
     if(movement.exit_at){
       damageOut=ask("Dégâts à la sortie (Oui/Non) :",movement.exit_has_damage||"Non");
@@ -2623,22 +2665,14 @@ async function addContainerModule(parent, clients, readOnly=false) {
       const dateOut=ask("Date de sortie (AAAA-MM-JJ) :",currentExitDate);
       if(dateOut===null)return;
       const cleanExitDate=dateOut.trim();
-      if(!/^\d{4}-\d{2}-\d{2}$/.test(cleanExitDate) || Number.isNaN(Date.parse(cleanExitDate+"T12:00:00"))){
-        alert("Date invalide. Utilisez le format AAAA-MM-JJ, par exemple 2026-11-11.");return;
-      }
-      const [year,month,day]=cleanExitDate.split("-").map(Number);
-      const checkDate=new Date(Date.UTC(year,month-1,day));
-      if(checkDate.getUTCFullYear()!==year || checkDate.getUTCMonth()!==month-1 || checkDate.getUTCDate()!==day){
-        alert("Date invalide. Vérifiez le jour, le mois et l'année.");return;
-      }
-      const timeParts=new Intl.DateTimeFormat("en-GB",{timeZone:"Africa/Tunis",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date(movement.exit_at));
-      const part=type=>timeParts.find(item=>item.type===type)?.value||"00";
-      exitDate=new Date(`${cleanExitDate}T${part("hour")}:${part("minute")}:${part("second")}+01:00`).toISOString();
+      if(!validISODate(cleanExitDate)){alert("Date de sortie invalide. Utilisez AAAA-MM-JJ.");return;}
+      exitDate=keepTunisTime(cleanExitDate,movement.exit_at);
     }
-    if(!window.confirm("Enregistrer les corrections de ce mouvement ?"))return;
+    if(movement.exit_at && new Date(entryDate)>=new Date(exitDate)){alert("La date d'entrée doit être antérieure à la date de sortie.");return;}
+    if(!window.confirm("Enregistrer les corrections de ce mouvement, y compris la date d'entrée ?"))return;
     button.disabled=true;button.textContent="Enregistrement…";el("cMsg").textContent="Mise à jour du mouvement…";
     try{
-      const changes={container_number:cleanNumber,container_company:company.trim(),container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null};
+      const changes={container_number:cleanNumber,container_company:company.trim(),container_type:type.trim(),has_damage:damageIn.trim().toLowerCase()==="oui"?"Oui":"Non",truck_registration:truckIn.trim()||null,entry_at:entryDate};
       if(movement.exit_at){
         changes.exit_has_damage=damageOut.trim().toLowerCase()==="oui"?"Oui":"Non";
         changes.exit_truck_registration=truckOut.trim()||null;
